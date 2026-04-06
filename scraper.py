@@ -93,20 +93,31 @@ def _load_search_page(page, url, retry=True):
 
 
 def _extract_listings_from_page(page):
-    """Extract listing data from the current search results page."""
+    """Extract listing data from the current search results page.
+
+    imobiliare.ro card structure:
+      div.listing-card
+        a[data-cy="listing-information-link"]  ← invisible overlay (no text)
+        h3                                     ← title
+        div with location text                 ← "Străulești, Sector 1"
+        spans with details                     ← "2 camere", "50 mp", "Etaj 1/4"
+        div with price                         ← "650 € + TVA / lună"
+    """
     listings = []
-    cards = page.query_selector_all(LISTING_SELECTOR)
-    for card in cards:
-        dom_id = card.get_attribute("id")
+    card_divs = page.query_selector_all("div.listing-card")
+    for card_div in card_divs:
+        # Get the anchor for ID and URL
+        anchor = card_div.query_selector(LISTING_SELECTOR)
+        if not anchor:
+            continue
+
+        dom_id = anchor.get_attribute("id")
         listing_id = extract_listing_id(dom_id)
         if not listing_id:
             continue
 
-        href = card.get_attribute("href") or ""
+        href = anchor.get_attribute("href") or ""
         url = build_full_url(href)
-
-        # Extract text content from card and surrounding elements
-        parent = card.evaluate_handle("el => el.closest('.listing-card, [class*=listing], [class*=card], article') || el.parentElement.parentElement")
 
         title = ""
         price = ""
@@ -114,25 +125,42 @@ def _extract_listings_from_page(page):
         details = ""
 
         try:
-            title = card.inner_text().strip()
+            # Title is in the h3 element
+            h3 = card_div.query_selector("h3")
+            if h3:
+                title = h3.inner_text().strip()
         except Exception:
             pass
 
         try:
-            parent_text = parent.evaluate("el => el.innerText")
-            lines = [l.strip() for l in parent_text.split("\n") if l.strip()]
-            # Heuristic: price usually contains EUR or lei or €
+            # Parse all text lines from the card
+            card_text = card_div.inner_text()
+            lines = [l.strip() for l in card_text.split("\n") if l.strip()]
+
+            # Price: line containing € or EUR or lei
             for line in lines:
-                if not price and re.search(r'(EUR|€|lei|luna)', line, re.IGNORECASE):
+                if re.search(r'(€|EUR|lei)', line):
+                    # Combine price with "/ lună" if it's on the next line
+                    idx = lines.index(line)
                     price = line
-                elif not location and re.search(r'(sector|bucuresti|zona|cartier)', line, re.IGNORECASE):
-                    location = line
-            # Details: anything with rooms/sqm/floor info
+                    if idx + 1 < len(lines) and "lun" in lines[idx + 1].lower():
+                        price = f"{line} {lines[idx + 1]}"
+                    break
+
+            # Location: line containing "Sector" or neighborhood names
             for line in lines:
-                if re.search(r'(camer|mp|etaj|suprafata|room)', line, re.IGNORECASE):
-                    if line != price and line != location:
-                        details = line
-                        break
+                if re.search(r'Sector \d', line) and line != title:
+                    location = line
+                    break
+
+            # Details: collect room count, sqm, floor, year
+            detail_parts = []
+            for line in lines:
+                if line == title or line == location or "€" in line or "lun" in line.lower():
+                    continue
+                if re.search(r'(\d+\s*camer|\d+\s*mp|[Ee]taj|mp\b)', line):
+                    detail_parts.append(line)
+            details = " | ".join(detail_parts) if detail_parts else ""
         except Exception:
             pass
 
