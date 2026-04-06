@@ -1,0 +1,318 @@
+import argparse
+import json
+import logging
+import random
+import re
+import sys
+import time
+
+from playwright.sync_api import sync_playwright
+from playwright_stealth import stealth_sync
+
+import config
+import db
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
+log = logging.getLogger("scraper")
+
+BASE_URL = "https://www.imobiliare.ro"
+LISTING_SELECTOR = 'a[data-cy="listing-information-link"]'
+
+
+# --- Pure helper functions (testable without browser) ---
+
+def extract_listing_id(dom_id):
+    """Extract numeric listing ID from DOM id like 'listing-link-275384395'."""
+    if not dom_id:
+        return None
+    match = re.search(r"(\d+)$", dom_id)
+    return match.group(1) if match else None
+
+
+def extract_photos_from_json(text, max_photos=10):
+    """Find CDN image URLs in page text (script tags, inline JSON, etc).
+
+    Searches for URLs matching common imobiliare.ro CDN patterns.
+    Deduplicates and caps at max_photos.
+    """
+    if not text:
+        return []
+    pattern = r'https?://[^"\'\\s]*?imobiliare\.ro[^"\'\\s]*?\.(?:jpg|jpeg|png|webp)'
+    urls = re.findall(pattern, text, re.IGNORECASE)
+    # Deduplicate while preserving order
+    seen = set()
+    unique = []
+    for url in urls:
+        if url not in seen:
+            seen.add(url)
+            unique.append(url)
+    return unique[:max_photos]
+
+
+def build_full_url(path):
+    """Prepend base URL to relative paths."""
+    if path.startswith("http"):
+        return path
+    return BASE_URL + path
+
+
+# --- Browser-dependent functions ---
+
+def _random_delay(delay_range):
+    time.sleep(random.uniform(*delay_range))
+
+
+def _launch_browser(pw):
+    browser = pw.chromium.launch(headless=True)
+    context = browser.new_context(
+        viewport={"width": 1920, "height": 1080},
+        user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+    )
+    page = context.new_page()
+    stealth_sync(page)
+    return browser, page
+
+
+def _load_search_page(page, url, retry=True):
+    """Load a search page, retry once on failure."""
+    try:
+        page.goto(url, wait_until="domcontentloaded", timeout=30000)
+        page.wait_for_selector(LISTING_SELECTOR, timeout=15000)
+        return True
+    except Exception as e:
+        if retry:
+            log.warning(f"Page load failed: {e}. Retrying in 30s...")
+            time.sleep(30)
+            return _load_search_page(page, url, retry=False)
+        log.error(f"Page load failed after retry: {e}")
+        return False
+
+
+def _extract_listings_from_page(page):
+    """Extract listing data from the current search results page."""
+    listings = []
+    cards = page.query_selector_all(LISTING_SELECTOR)
+    for card in cards:
+        dom_id = card.get_attribute("id")
+        listing_id = extract_listing_id(dom_id)
+        if not listing_id:
+            continue
+
+        href = card.get_attribute("href") or ""
+        url = build_full_url(href)
+
+        # Extract text content from card and surrounding elements
+        parent = card.evaluate_handle("el => el.closest('.listing-card, [class*=listing], [class*=card], article') || el.parentElement.parentElement")
+
+        title = ""
+        price = ""
+        location = ""
+        details = ""
+
+        try:
+            title = card.inner_text().strip()
+        except Exception:
+            pass
+
+        try:
+            parent_text = parent.evaluate("el => el.innerText")
+            lines = [l.strip() for l in parent_text.split("\n") if l.strip()]
+            # Heuristic: price usually contains EUR or lei or €
+            for line in lines:
+                if not price and re.search(r'(EUR|€|lei|luna)', line, re.IGNORECASE):
+                    price = line
+                elif not location and re.search(r'(sector|bucuresti|zona|cartier)', line, re.IGNORECASE):
+                    location = line
+            # Details: anything with rooms/sqm/floor info
+            for line in lines:
+                if re.search(r'(camer|mp|etaj|suprafata|room)', line, re.IGNORECASE):
+                    if line != price and line != location:
+                        details = line
+                        break
+        except Exception:
+            pass
+
+        listings.append({
+            "id": listing_id,
+            "title": title,
+            "url": url,
+            "price": price,
+            "location": location,
+            "details": details,
+            "photo_urls": [],
+        })
+
+    return listings
+
+
+def _find_next_page(page):
+    """Find and return the next page URL, or None if no next page."""
+    try:
+        next_btn = page.query_selector('a[rel="next"], .pagination a:has-text("Urm"), .pagination a:has-text("next"), [aria-label="Next"]')
+        if next_btn:
+            href = next_btn.get_attribute("href")
+            if href:
+                return build_full_url(href)
+    except Exception:
+        pass
+    return None
+
+
+def _fetch_photos(page, url, max_photos):
+    """Visit a listing detail page and extract photo URLs."""
+    try:
+        page.goto(url, wait_until="domcontentloaded", timeout=20000)
+        # Try JSON extraction first (more reliable)
+        page_content = page.content()
+        photos = extract_photos_from_json(page_content, max_photos)
+        if photos:
+            return photos
+
+        # Fallback: extract from img tags
+        imgs = page.query_selector_all("img")
+        urls = []
+        seen = set()
+        for img in imgs:
+            src = img.get_attribute("src") or ""
+            if "imobiliare" in src and re.search(r'\.(jpg|jpeg|png|webp)', src, re.IGNORECASE):
+                if src not in seen:
+                    seen.add(src)
+                    urls.append(src)
+                    if len(urls) >= max_photos:
+                        break
+        return urls
+    except Exception as e:
+        log.warning(f"Failed to fetch photos from {url}: {e}")
+        return []
+
+
+def scrape_search_results(page, max_pages):
+    """Scrape all pages of search results. Returns list of listing dicts."""
+    all_listings = []
+    current_url = config.SEARCH_URL
+    page_num = 0
+
+    while current_url and page_num < max_pages:
+        page_num += 1
+        if not _load_search_page(page, current_url):
+            if page_num == 1:
+                log.error("Could not load first page. Exiting.")
+                sys.exit(1)
+            break
+
+        listings = _extract_listings_from_page(page)
+        log.info(f"Page {page_num}: found {len(listings)} listings")
+        all_listings.extend(listings)
+
+        current_url = _find_next_page(page)
+        if current_url and page_num < max_pages:
+            _random_delay(config.PAGINATION_DELAY)
+
+    return all_listings
+
+
+def run_normal():
+    """Normal mode: scrape search results, fetch photos for new listings only."""
+    db.init_db()
+    with sync_playwright() as pw:
+        browser, page = _launch_browser(pw)
+        try:
+            all_listings = scrape_search_results(page, config.MAX_PAGES)
+            if not all_listings:
+                log.info("No listings found on search page.")
+                return
+
+            all_ids = [l["id"] for l in all_listings]
+            existing_ids = db.get_existing_ids(all_ids)
+            new_listings = [l for l in all_listings if l["id"] not in existing_ids]
+            log.info(f"Found {len(all_listings)} total, {len(new_listings)} new")
+
+            for listing in new_listings:
+                log.info(f"Fetching photos for {listing['id']}: {listing['url']}")
+                listing["photo_urls"] = _fetch_photos(page, listing["url"], config.MAX_PHOTOS)
+                log.info(f"  Got {len(listing['photo_urls'])} photos")
+                _random_delay(config.DETAIL_PAGE_DELAY)
+
+            if new_listings:
+                db.insert_listings(new_listings)
+                log.info(f"Scraper complete: {len(new_listings)} new listings added")
+
+                # PHASE 2: Send Telegram notification for new listings
+                # TODO: implement when scraping is verified working
+                # - Use sendMessage for listing details (title, price, location, url)
+                # - Use sendMediaGroup to send up to 10 photos per listing (from photo_urls)
+                # - Bot token and chat ID go in config.py
+                # def notify_telegram(listings): ...
+            else:
+                log.info("Scraper complete: no new listings")
+        finally:
+            browser.close()
+
+
+def run_seed():
+    """Seed mode: scrape all pages, no photo fetching."""
+    db.init_db()
+    with sync_playwright() as pw:
+        browser, page = _launch_browser(pw)
+        try:
+            all_listings = scrape_search_results(page, config.SEED_MAX_PAGES)
+            if not all_listings:
+                log.info("No listings found.")
+                return
+
+            all_ids = [l["id"] for l in all_listings]
+            existing_ids = db.get_existing_ids(all_ids)
+            new_listings = [l for l in all_listings if l["id"] not in existing_ids]
+            log.info(f"Seed: {len(all_listings)} total scraped, {len(new_listings)} new to insert")
+
+            if new_listings:
+                db.insert_listings(new_listings)
+                log.info(f"Seed complete: {len(new_listings)} listings inserted (no photos)")
+            else:
+                log.info("Seed complete: all listings already in DB")
+        finally:
+            browser.close()
+
+
+def run_backfill():
+    """Backfill mode: fetch photos for listings that have none."""
+    db.init_db()
+    listings = db.get_listings_without_photos(limit=config.BACKFILL_BATCH_SIZE)
+    if not listings:
+        log.info("Backfill: no listings need photos")
+        return
+
+    log.info(f"Backfill: fetching photos for {len(listings)} listings")
+    with sync_playwright() as pw:
+        browser, page = _launch_browser(pw)
+        try:
+            for listing in listings:
+                url = listing["url"]
+                log.info(f"Backfill photos for {listing['id']}: {url}")
+                photos = _fetch_photos(page, url, config.MAX_PHOTOS)
+                db.update_photos(listing["id"], photos)
+                log.info(f"  Got {len(photos)} photos")
+                _random_delay(config.DETAIL_PAGE_DELAY)
+        finally:
+            browser.close()
+
+    log.info("Backfill complete")
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Imobiliare.ro apartment scraper")
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument("--seed", action="store_true", help="Seed mode: bulk import, no photos")
+    group.add_argument("--backfill", action="store_true", help="Backfill mode: fetch missing photos")
+    args = parser.parse_args()
+
+    if args.seed:
+        run_seed()
+    elif args.backfill:
+        run_backfill()
+    else:
+        run_normal()
