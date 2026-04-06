@@ -150,13 +150,60 @@ def _extract_listings_from_page(page):
 
 
 def _find_next_page(page):
-    """Find and return the next page URL, or None if no next page."""
+    """Find and return the next page URL, or None if no next page.
+
+    imobiliare.ro renders pagination as:
+      <ul class="... pagination-page-nav ...">
+        <li class="page-item 1"><p>1</p></li>   ← current page: a <p>, not an <a>
+        <li class="page-item "><a href="...?page=2...">2</a></li>
+        ...
+      </ul>
+    There is also a standalone "next page" arrow link rendered as an <a> with
+    class "flex h-10 w-10 ... no-underline" that appears after the numbered
+    items and whose href contains "page=N" where N is current+1.
+
+    Strategy: find the current active page number, then return the href of the
+    very next <a> sibling inside the same pagination <ul>.  As a fallback,
+    grab the last anchor in the pagination nav whose href contains "page=".
+    """
     try:
-        next_btn = page.query_selector('a[rel="next"], .pagination a:has-text("Urm"), .pagination a:has-text("next"), [aria-label="Next"]')
-        if next_btn:
-            href = next_btn.get_attribute("href")
-            if href:
+        # Locate the pagination list
+        nav_ul = page.query_selector("ul.pagination-page-nav")
+        if not nav_ul:
+            return None
+
+        items = nav_ul.query_selector_all("li")
+        if not items:
+            return None
+
+        # Find the active (current) page item — it renders as a <p> not an <a>
+        current_idx = None
+        for idx, li in enumerate(items):
+            # Active page has a <p> child (not an <a>)
+            p = li.query_selector("p")
+            a = li.query_selector("a")
+            if p and not a:
+                current_idx = idx
+                break
+
+        if current_idx is not None and current_idx + 1 < len(items):
+            next_li = items[current_idx + 1]
+            next_a = next_li.query_selector("a")
+            if next_a:
+                href = next_a.get_attribute("href")
+                if href and "page=" in href:
+                    return build_full_url(href)
+
+        # Fallback: look for the dedicated "next arrow" link that appears after
+        # the numbered items — it has a distinct class that includes "no-underline"
+        # and its href contains "page="
+        all_links = nav_ul.query_selector_all("a[href]")
+        for link in reversed(list(all_links)):
+            href = link.get_attribute("href") or ""
+            cls = link.get_attribute("class") or ""
+            if "page=" in href and "no-underline" in cls:
                 return build_full_url(href)
+
     except Exception:
         pass
     return None
