@@ -60,6 +60,7 @@ def build_full_url(path):
     return BASE_URL + path
 
 
+
 # --- Browser-dependent functions ---
 
 def _random_delay(delay_range):
@@ -270,26 +271,44 @@ def _fetch_photos(page, url, max_photos):
 
 
 def scrape_search_results(page, max_pages):
-    """Scrape all pages of search results. Returns list of listing dicts."""
+    """Scrape all pages of search results across all configured URLs.
+
+    Iterates over config.SEARCH_URLS, paginates each one, and deduplicates
+    by listing ID.
+    """
     all_listings = []
-    current_url = config.SEARCH_URL
-    page_num = 0
+    seen_ids = set()
 
-    while current_url and page_num < max_pages:
-        page_num += 1
-        if not _load_search_page(page, current_url):
-            if page_num == 1:
-                log.error("Could not load first page. Exiting.")
-                sys.exit(1)
-            break
+    for search_url in config.SEARCH_URLS:
+        log.info(f"Scraping: {search_url[:80]}...")
+        current_url = search_url
+        page_num = 0
 
-        listings = _extract_listings_from_page(page)
-        log.info(f"Page {page_num}: found {len(listings)} listings")
-        all_listings.extend(listings)
+        while current_url and page_num < max_pages:
+            page_num += 1
+            if not _load_search_page(page, current_url):
+                if page_num == 1:
+                    log.warning(f"Could not load first page for {search_url[:60]}. Skipping.")
+                break
 
-        current_url = _find_next_page(page)
-        if current_url and page_num < max_pages:
-            _random_delay(config.PAGINATION_DELAY)
+            listings = _extract_listings_from_page(page)
+            # Deduplicate across neighborhoods
+            new_listings = [l for l in listings if l["id"] not in seen_ids]
+            for l in new_listings:
+                seen_ids.add(l["id"])
+            all_listings.extend(new_listings)
+            log.info(f"  Page {page_num}: {len(listings)} cards, {len(new_listings)} new")
+
+            # Stop paginating if no new listings found (site recycles)
+            if len(new_listings) == 0:
+                log.info(f"  No new listings on page {page_num}, moving to next neighborhood")
+                break
+
+            current_url = _find_next_page(page)
+            if current_url and page_num < max_pages:
+                _random_delay(config.PAGINATION_DELAY)
+
+        _random_delay(config.PAGINATION_DELAY)
 
     return all_listings
 
