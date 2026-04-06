@@ -97,11 +97,14 @@ def _extract_listings_from_page(page):
 
     imobiliare.ro card structure:
       div.listing-card
-        a[data-cy="listing-information-link"]  ← invisible overlay (no text)
-        h3                                     ← title
-        div with location text                 ← "Străulești, Sector 1"
-        spans with details                     ← "2 camere", "50 mp", "Etaj 1/4"
-        div with price                         ← "650 € + TVA / lună"
+        a[data-cy="listing-information-link"]  ← invisible overlay (ID + href)
+        div[data-bi]                           ← inner div with all data in attributes:
+          data-name, data-bi-listing-price, data-bi-listing-currency,
+          data-area, data-location-id
+        h3 (optional)                          ← title text (only on some cards)
+
+    Primary extraction uses data-bi attributes (reliable, always present).
+    Falls back to h3/text parsing if data-bi is missing.
     """
     listings = []
     card_divs = page.query_selector_all("div.listing-card")
@@ -124,39 +127,40 @@ def _extract_listings_from_page(page):
         location = ""
         details = ""
 
-        try:
-            # Title is in the h3 element
-            h3 = card_div.query_selector("h3")
-            if h3:
-                title = h3.inner_text().strip()
-        except Exception:
-            pass
+        # Primary: extract from data-bi attributes (most reliable)
+        data_div = card_div.query_selector("[data-bi]")
+        if data_div:
+            try:
+                attrs = data_div.evaluate("""el => ({
+                    name: el.getAttribute('data-name') || '',
+                    price: el.getAttribute('data-bi-listing-price') || '',
+                    currency: el.getAttribute('data-bi-listing-currency') || '',
+                    area: el.getAttribute('data-area') || '',
+                    location: el.getAttribute('data-location-id') || '',
+                })""")
+                title = attrs["name"]
+                if attrs["price"]:
+                    price = f"{attrs['price']} {attrs['currency']} / lună"
+                location = attrs["location"].replace("Bucuresti ", "")
+            except Exception:
+                pass
 
+        # Fallback: h3 for title if data-bi didn't provide one
+        if not title:
+            try:
+                h3 = card_div.query_selector("h3")
+                if h3:
+                    title = h3.inner_text().strip()
+            except Exception:
+                pass
+
+        # Details: extract room count, sqm, floor from card text
         try:
-            # Parse all text lines from the card
             card_text = card_div.inner_text()
             lines = [l.strip() for l in card_text.split("\n") if l.strip()]
-
-            # Price: line containing € or EUR or lei
-            for line in lines:
-                if re.search(r'(€|EUR|lei)', line):
-                    # Combine price with "/ lună" if it's on the next line
-                    idx = lines.index(line)
-                    price = line
-                    if idx + 1 < len(lines) and "lun" in lines[idx + 1].lower():
-                        price = f"{line} {lines[idx + 1]}"
-                    break
-
-            # Location: line containing "Sector" or neighborhood names
-            for line in lines:
-                if re.search(r'Sector \d', line) and line != title:
-                    location = line
-                    break
-
-            # Details: collect room count, sqm, floor, year
             detail_parts = []
             for line in lines:
-                if line == title or line == location or "€" in line or "lun" in line.lower():
+                if line == title or "€" in line or "lun" in line.lower():
                     continue
                 if re.search(r'(\d+\s*camer|\d+\s*mp|[Ee]taj|mp\b)', line):
                     detail_parts.append(line)
