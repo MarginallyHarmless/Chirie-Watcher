@@ -41,7 +41,7 @@ def extract_photos_from_json(text, max_photos=10):
     """
     if not text:
         return []
-    pattern = r'https?://[^"\'\\s]*?imobiliare\.ro[^"\'\\s]*?\.(?:jpg|jpeg|png|webp)'
+    pattern = r'https?://[^"\'\s]*?imobiliare\.ro[^"\'\s]*?\.(?:jpg|jpeg|png|webp)'
     urls = re.findall(pattern, text, re.IGNORECASE)
     # Deduplicate while preserving order
     seen = set()
