@@ -1,2 +1,412 @@
 <!DOCTYPE html>
-<html><body><p>Dashboard placeholder</p></body></html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Imobiliare Watcher</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background: #0a0a0a;
+            color: #c0c0c0;
+            font-family: 'IBM Plex Mono', 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .header {
+            background: #111;
+            border-bottom: 1px solid #222;
+            padding: 16px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header h1 {
+            color: #00ff41;
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .header-info {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            font-size: 12px;
+        }
+
+        .health-dot {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 6px;
+        }
+
+        .health-dot.healthy { background: #00ff41; }
+        .health-dot.unhealthy { background: #ff4141; }
+
+        .warning-banner {
+            background: #1a1000;
+            border: 1px solid #ff4141;
+            color: #ff4141;
+            padding: 8px 24px;
+            font-size: 12px;
+            display: none;
+        }
+
+        .controls {
+            padding: 16px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #1a1a1a;
+        }
+
+        .filter-toggle {
+            display: flex;
+            gap: 0;
+        }
+
+        .filter-btn {
+            background: #1a1a1a;
+            color: #888;
+            border: 1px solid #333;
+            padding: 6px 16px;
+            font-family: inherit;
+            font-size: 12px;
+            cursor: pointer;
+        }
+
+        .filter-btn:first-child { border-radius: 4px 0 0 4px; }
+        .filter-btn:last-child { border-radius: 0 4px 4px 0; border-left: none; }
+
+        .filter-btn.active {
+            background: #00ff41;
+            color: #0a0a0a;
+            border-color: #00ff41;
+        }
+
+        .pagination {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 12px;
+        }
+
+        .pagination button {
+            background: #1a1a1a;
+            color: #c0c0c0;
+            border: 1px solid #333;
+            padding: 4px 12px;
+            font-family: inherit;
+            font-size: 12px;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+
+        .pagination button:disabled {
+            opacity: 0.3;
+            cursor: default;
+        }
+
+        .pagination button:hover:not(:disabled) {
+            border-color: #00ff41;
+            color: #00ff41;
+        }
+
+        .listings {
+            padding: 16px 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .card {
+            background: #111;
+            border: 1px solid #222;
+            border-radius: 6px;
+            padding: 16px;
+            transition: opacity 0.3s;
+        }
+
+        .card.seen {
+            opacity: 0.5;
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 12px;
+            margin-bottom: 8px;
+        }
+
+        .card-title {
+            color: #e0e0e0;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .card-title:hover {
+            color: #00ff41;
+        }
+
+        .badge-new {
+            background: #00ff41;
+            color: #0a0a0a;
+            font-size: 10px;
+            font-weight: 600;
+            padding: 2px 8px;
+            border-radius: 3px;
+            white-space: nowrap;
+        }
+
+        .card-details {
+            font-size: 13px;
+            margin-bottom: 12px;
+        }
+
+        .card-details .price {
+            color: #00ff41;
+            font-weight: 600;
+            font-size: 16px;
+        }
+
+        .card-details .location,
+        .card-details .info {
+            color: #888;
+            margin-top: 4px;
+        }
+
+        .photo-strip {
+            display: flex;
+            gap: 8px;
+            overflow-x: auto;
+            padding: 8px 0;
+            scrollbar-width: thin;
+            scrollbar-color: #333 transparent;
+        }
+
+        .photo-strip::-webkit-scrollbar {
+            height: 6px;
+        }
+
+        .photo-strip::-webkit-scrollbar-thumb {
+            background: #333;
+            border-radius: 3px;
+        }
+
+        .photo-strip img {
+            height: 100px;
+            border-radius: 4px;
+            cursor: pointer;
+            border: 1px solid #222;
+            flex-shrink: 0;
+        }
+
+        .photo-strip img:hover {
+            border-color: #00ff41;
+        }
+
+        .photo-count {
+            font-size: 11px;
+            color: #666;
+            margin-top: 4px;
+        }
+
+        .card-actions {
+            margin-top: 12px;
+        }
+
+        .btn-ack {
+            background: transparent;
+            color: #00ff41;
+            border: 1px solid #00ff41;
+            padding: 4px 12px;
+            font-family: inherit;
+            font-size: 12px;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+
+        .btn-ack:hover {
+            background: #00ff41;
+            color: #0a0a0a;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 48px;
+            color: #555;
+        }
+
+        .total-count {
+            font-size: 12px;
+            color: #555;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>// imobiliare watcher</h1>
+        <div class="header-info">
+            <span id="lastScrape">Last scrape: --</span>
+            <span><span class="health-dot" id="healthDot"></span><span id="healthText">--</span></span>
+        </div>
+    </div>
+    <div class="warning-banner" id="warningBanner">Scraper may be down - last successful run was over 2 hours ago</div>
+    <div class="controls">
+        <div class="filter-toggle">
+            <button class="filter-btn active" data-filter="new" onclick="setFilter('new')">New only</button>
+            <button class="filter-btn" data-filter="all" onclick="setFilter('all')">All</button>
+        </div>
+        <span class="total-count" id="totalCount"></span>
+        <div class="pagination">
+            <button id="prevBtn" onclick="prevPage()" disabled>&lt; Prev</button>
+            <span id="pageInfo">--</span>
+            <button id="nextBtn" onclick="nextPage()" disabled>Next &gt;</button>
+        </div>
+    </div>
+    <div class="listings" id="listings"></div>
+
+    <script>
+        let currentPage = 1;
+        let currentFilter = 'new';
+        const perPage = 50;
+        let totalPages = 1;
+        let refreshTimer = null;
+
+        async function fetchListings() {
+            try {
+                const resp = await fetch(`/api/listings?page=${currentPage}&per_page=${perPage}&filter=${currentFilter}`);
+                const data = await resp.json();
+                renderListings(data);
+                updateHeader(data);
+                updatePagination(data);
+            } catch (e) {
+                console.error('Fetch failed:', e);
+            }
+        }
+
+        function renderListings(data) {
+            const container = document.getElementById('listings');
+            if (!data.listings.length) {
+                container.innerHTML = '<div class="empty-state">No listings found</div>';
+                return;
+            }
+            container.innerHTML = data.listings.map(l => `
+                <div class="card ${l.is_new ? '' : 'seen'}" id="card-${l.id}">
+                    <div class="card-header">
+                        <a class="card-title" href="${esc(l.url)}" target="_blank">${esc(l.title || 'Untitled')}</a>
+                        ${l.is_new ? '<span class="badge-new">NEW</span>' : ''}
+                    </div>
+                    <div class="card-details">
+                        <div class="price">${esc(l.price || 'No price')}</div>
+                        <div class="location">${esc(l.location || '')}</div>
+                        <div class="info">${esc(l.details || '')}</div>
+                    </div>
+                    ${l.photo_urls && l.photo_urls.length ? `
+                        <div class="photo-strip">
+                            ${l.photo_urls.map(url => `<img src="${esc(url)}" onclick="window.open('${esc(url)}', '_blank')" alt="photo" loading="lazy">`).join('')}
+                        </div>
+                        <div class="photo-count">${l.photo_urls.length} photo${l.photo_urls.length !== 1 ? 's' : ''}</div>
+                    ` : ''}
+                    ${l.is_new ? `
+                        <div class="card-actions">
+                            <button class="btn-ack" onclick="acknowledge('${l.id}')">Mark as seen</button>
+                        </div>
+                    ` : ''}
+                </div>
+            `).join('');
+        }
+
+        function updateHeader(data) {
+            const lastScrape = data.last_scrape
+                ? new Date(data.last_scrape).toLocaleString()
+                : 'Never';
+            document.getElementById('lastScrape').textContent = `Last scrape: ${lastScrape}`;
+
+            const dot = document.getElementById('healthDot');
+            const text = document.getElementById('healthText');
+            const banner = document.getElementById('warningBanner');
+
+            if (data.last_scrape === null) {
+                dot.className = 'health-dot unhealthy';
+                text.textContent = 'No data';
+                banner.style.display = 'block';
+            } else if (data.scraper_healthy) {
+                dot.className = 'health-dot healthy';
+                text.textContent = 'Healthy';
+                banner.style.display = 'none';
+            } else {
+                dot.className = 'health-dot unhealthy';
+                text.textContent = 'Stale';
+                banner.style.display = 'block';
+            }
+        }
+
+        function updatePagination(data) {
+            totalPages = Math.max(1, Math.ceil(data.total / perPage));
+            document.getElementById('pageInfo').textContent = `${currentPage} / ${totalPages}`;
+            document.getElementById('prevBtn').disabled = currentPage <= 1;
+            document.getElementById('nextBtn').disabled = currentPage >= totalPages;
+            document.getElementById('totalCount').textContent = `${data.total} listings`;
+        }
+
+        function setFilter(f) {
+            currentFilter = f;
+            currentPage = 1;
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.filter === f);
+            });
+            fetchListings();
+        }
+
+        function prevPage() {
+            if (currentPage > 1) { currentPage--; fetchListings(); }
+        }
+
+        function nextPage() {
+            if (currentPage < totalPages) { currentPage++; fetchListings(); }
+        }
+
+        async function acknowledge(id) {
+            try {
+                await fetch(`/api/listings/${id}/acknowledge`, { method: 'POST' });
+                const card = document.getElementById(`card-${id}`);
+                if (card) {
+                    card.classList.add('seen');
+                    const badge = card.querySelector('.badge-new');
+                    if (badge) badge.remove();
+                    const actions = card.querySelector('.card-actions');
+                    if (actions) actions.remove();
+                }
+            } catch (e) {
+                console.error('Acknowledge failed:', e);
+            }
+        }
+
+        function esc(str) {
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
+        // Initial load
+        fetchListings();
+
+        // Auto-refresh every 60 seconds
+        refreshTimer = setInterval(fetchListings, 60000);
+    </script>
+</body>
+</html>
