@@ -5,22 +5,36 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Scrape Log — Imobiliare Watcher</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@300;400;500;600&family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;1,9..144,400&display=swap" rel="stylesheet">
     <style>
+        :root {
+            --bg: #141416;
+            --bg-card: #1c1c1f;
+            --text-primary: #e8e6e3;
+            --text-secondary: #9a9590;
+            --text-muted: #5f5b56;
+            --accent: #e8793a;
+            --accent-light: rgba(232, 121, 58, 0.12);
+            --border: #2a2a2d;
+            --border-light: #222224;
+            --radius: 12px;
+            --radius-sm: 8px;
+        }
+
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
         body {
-            background: #0a0a0a;
-            color: #c0c0c0;
-            font-family: 'IBM Plex Mono', 'Courier New', monospace;
-            font-size: 14px;
+            background: var(--bg);
+            color: var(--text-primary);
+            font-family: 'Libre Franklin', -apple-system, sans-serif;
+            font-size: 15px;
             line-height: 1.5;
+            -webkit-font-smoothing: antialiased;
         }
 
         .header {
-            background: #111;
-            border-bottom: 1px solid #222;
-            padding: 16px 24px;
+            padding: 20px 32px;
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -29,30 +43,37 @@
             position: sticky;
             top: 0;
             z-index: 100;
+            background: rgba(20, 20, 22, 0.85);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border-light);
         }
 
         .header h1 {
-            color: #00ff41;
-            font-size: 18px;
-            font-weight: 600;
+            font-family: 'Fraunces', Georgia, serif;
+            font-size: 24px;
+            font-weight: 400;
+            font-style: italic;
+            color: var(--text-primary);
+            letter-spacing: -0.02em;
         }
 
         .back-link {
-            color: #888;
-            font-size: 12px;
+            color: var(--text-muted);
+            font-size: 13px;
             text-decoration: none;
-            border: 1px solid #333;
-            padding: 6px 12px;
-            border-radius: 4px;
+            font-weight: 500;
+            transition: color 0.2s;
         }
 
         .back-link:hover {
-            border-color: #00ff41;
-            color: #00ff41;
+            color: var(--accent);
         }
 
         .log-container {
-            padding: 16px 24px;
+            padding: 24px 32px;
+            max-width: 1000px;
+            margin: 0 auto;
         }
 
         table {
@@ -63,65 +84,83 @@
 
         th {
             text-align: left;
-            color: #555;
-            font-weight: 400;
-            padding: 8px 16px 8px 0;
-            border-bottom: 1px solid #222;
+            color: var(--text-muted);
+            font-weight: 500;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            padding: 10px 16px 10px 0;
+            border-bottom: 1px solid var(--border);
         }
 
         td {
-            padding: 8px 16px 8px 0;
-            border-bottom: 1px solid #1a1a1a;
+            padding: 10px 16px 10px 0;
+            border-bottom: 1px solid var(--border-light);
+            color: var(--text-secondary);
         }
 
-        tr.error-row {
-            border-left: 3px solid #ff4141;
+        tr:hover td {
+            color: var(--text-primary);
         }
 
         tr.error-row td {
-            color: #ff4141;
+            color: #f87171;
         }
 
         .error-msg {
-            color: #ff4141;
+            color: #f87171;
             font-size: 12px;
-            padding: 2px 0 8px 0;
+            padding: 4px 0 10px 0;
+            opacity: 0.8;
         }
 
         .log-badge {
             display: inline-block;
-            padding: 2px 8px;
-            border-radius: 3px;
+            padding: 3px 10px;
+            border-radius: 20px;
             font-size: 11px;
+            font-weight: 600;
         }
 
         .log-badge.ok {
-            background: #002200;
-            color: #00ff41;
+            background: rgba(42, 157, 78, 0.15);
+            color: #4ade80;
         }
 
         .log-badge.err {
-            background: #220000;
-            color: #ff4141;
+            background: rgba(248, 113, 113, 0.15);
+            color: #f87171;
         }
 
         .empty-state {
             text-align: center;
-            padding: 48px;
-            color: #555;
+            padding: 80px 24px;
+            color: var(--text-muted);
+            font-size: 15px;
         }
 
         .summary {
-            font-size: 12px;
-            color: #555;
+            font-size: 13px;
+            color: var(--text-muted);
             margin-bottom: 16px;
         }
+
+        @media (max-width: 768px) {
+            .header { padding: 16px 20px; }
+            .log-container { padding: 16px 20px; }
+            .header h1 { font-size: 20px; }
+        }
+
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
     </style>
 </head>
 <body>
     <div class="header">
-        <h1>// scrape log</h1>
-        <a class="back-link" href="/">&lt; Back to dashboard</a>
+        <h1>Scrape Log</h1>
+        <a class="back-link" href="/">← Back to dashboard</a>
     </div>
     <div class="log-container">
         <div class="summary" id="summary"></div>

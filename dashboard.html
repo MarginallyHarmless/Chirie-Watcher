@@ -5,22 +5,40 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Imobiliare Watcher</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@300;400;500;600&family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;1,9..144,400&display=swap" rel="stylesheet">
     <style>
+        :root {
+            --bg: #141416;
+            --bg-card: #1c1c1f;
+            --text-primary: #e8e6e3;
+            --text-secondary: #9a9590;
+            --text-muted: #5f5b56;
+            --accent: #e8793a;
+            --accent-light: rgba(232, 121, 58, 0.12);
+            --border: #2a2a2d;
+            --border-light: #222224;
+            --shadow-sm: 0 1px 3px rgba(0,0,0,0.2), 0 1px 2px rgba(0,0,0,0.15);
+            --shadow-md: 0 4px 16px rgba(0,0,0,0.3), 0 2px 4px rgba(0,0,0,0.2);
+            --shadow-lg: 0 12px 40px rgba(0,0,0,0.4), 0 4px 12px rgba(0,0,0,0.25);
+            --radius: 12px;
+            --radius-sm: 8px;
+        }
+
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
         body {
-            background: #0a0a0a;
-            color: #c0c0c0;
-            font-family: 'IBM Plex Mono', 'Courier New', monospace;
-            font-size: 14px;
+            background: var(--bg);
+            color: var(--text-primary);
+            font-family: 'Libre Franklin', -apple-system, sans-serif;
+            font-size: 15px;
             line-height: 1.5;
+            -webkit-font-smoothing: antialiased;
         }
 
+        /* === HEADER === */
         .header {
-            background: #111;
-            border-bottom: 1px solid #222;
-            padding: 16px 24px;
+            padding: 20px 32px;
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -29,305 +47,568 @@
             position: sticky;
             top: 0;
             z-index: 100;
+            background: rgba(20, 20, 22, 0.85);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border-light);
+        }
+
+        .header-left {
+            display: flex;
+            align-items: baseline;
+            gap: 16px;
         }
 
         .header h1 {
-            color: #00ff41;
-            font-size: 18px;
-            font-weight: 600;
+            font-family: 'Fraunces', Georgia, serif;
+            font-size: 24px;
+            font-weight: 400;
+            font-style: italic;
+            color: var(--text-primary);
+            letter-spacing: -0.02em;
         }
 
-        .header-info {
+        .header-status {
             display: flex;
             align-items: center;
-            gap: 16px;
-            font-size: 12px;
+            gap: 6px;
+            font-size: 13px;
+            color: var(--text-muted);
         }
 
         .health-dot {
-            display: inline-block;
-            width: 8px;
-            height: 8px;
+            width: 7px;
+            height: 7px;
             border-radius: 50%;
-            margin-right: 6px;
+            flex-shrink: 0;
         }
 
-        .health-dot.healthy { background: #00ff41; }
-        .health-dot.unhealthy { background: #ff4141; }
+        .health-dot.healthy { background: #2a9d4e; box-shadow: 0 0 0 3px rgba(42, 157, 78, 0.15); }
+        .health-dot.unhealthy { background: #d44; box-shadow: 0 0 0 3px rgba(221, 68, 68, 0.15); }
 
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        /* === WARNING === */
         .warning-banner {
-            background: #1a1000;
-            border: 1px solid #ff4141;
-            color: #ff4141;
-            padding: 8px 24px;
-            font-size: 12px;
+            background: #2a1515;
+            border-bottom: 1px solid #4a2020;
+            color: #f87171;
+            padding: 10px 32px;
+            font-size: 13px;
             display: none;
+            font-weight: 500;
         }
 
+        /* === CONTROLS === */
         .controls {
-            padding: 16px 24px;
+            padding: 16px 32px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            border-bottom: 1px solid #1a1a1a;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .controls-left {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .controls-right {
+            display: flex;
+            align-items: center;
+            gap: 16px;
         }
 
         .filter-toggle {
             display: flex;
-            gap: 0;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            overflow: hidden;
         }
 
         .filter-btn {
-            background: #1a1a1a;
-            color: #888;
-            border: 1px solid #333;
-            padding: 6px 16px;
+            background: transparent;
+            color: var(--text-secondary);
+            border: none;
+            padding: 7px 18px;
             font-family: inherit;
-            font-size: 12px;
+            font-size: 13px;
+            font-weight: 500;
             cursor: pointer;
+            transition: all 0.2s;
         }
 
-        .filter-btn:first-child { border-radius: 4px 0 0 4px; }
-        .filter-btn:last-child { border-radius: 0 4px 4px 0; border-left: none; }
+        .filter-btn:not(:last-child) {
+            border-right: 1px solid var(--border);
+        }
 
         .filter-btn.active {
-            background: #00ff41;
-            color: #0a0a0a;
-            border-color: #00ff41;
+            background: var(--text-primary);
+            color: var(--bg);
+        }
+
+        .filter-btn:not(.active):hover {
+            background: var(--border-light);
         }
 
         .sort-select {
-            background: #1a1a1a;
-            color: #c0c0c0;
-            border: 1px solid #333;
-            padding: 6px 12px;
+            background: var(--bg-card);
+            color: var(--text-secondary);
+            border: 1px solid var(--border);
+            padding: 7px 32px 7px 14px;
             font-family: inherit;
-            font-size: 12px;
+            font-size: 13px;
+            font-weight: 500;
             cursor: pointer;
-            border-radius: 4px;
+            border-radius: var(--radius-sm);
             appearance: none;
             -webkit-appearance: none;
-            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%23888'/%3E%3C/svg%3E");
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23a09890'/%3E%3C/svg%3E");
             background-repeat: no-repeat;
-            background-position: right 8px center;
-            padding-right: 24px;
+            background-position: right 10px center;
+            transition: border-color 0.2s;
         }
 
-        .sort-select:hover {
-            border-color: #00ff41;
-            color: #00ff41;
+        .sort-select:hover { border-color: var(--text-muted); }
+
+        .total-count {
+            font-size: 13px;
+            color: var(--text-muted);
+            font-weight: 400;
         }
+
+        .log-link {
+            color: var(--text-muted);
+            font-size: 13px;
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.2s;
+        }
+
+        .log-link:hover { color: var(--accent); }
 
         .pagination {
             display: flex;
             align-items: center;
-            gap: 12px;
-            font-size: 12px;
+            gap: 8px;
+            font-size: 13px;
+            color: var(--text-muted);
         }
 
         .pagination button {
-            background: #1a1a1a;
-            color: #c0c0c0;
-            border: 1px solid #333;
-            padding: 4px 12px;
+            background: var(--bg-card);
+            color: var(--text-secondary);
+            border: 1px solid var(--border);
+            padding: 6px 14px;
             font-family: inherit;
-            font-size: 12px;
+            font-size: 13px;
+            font-weight: 500;
             cursor: pointer;
-            border-radius: 4px;
+            border-radius: var(--radius-sm);
+            transition: all 0.2s;
         }
 
         .pagination button:disabled {
-            opacity: 0.3;
+            opacity: 0.35;
             cursor: default;
         }
 
         .pagination button:hover:not(:disabled) {
-            border-color: #00ff41;
-            color: #00ff41;
+            border-color: var(--text-secondary);
+            color: var(--text-primary);
         }
 
+        /* === GRID === */
         .listings {
-            padding: 16px 24px;
+            padding: 8px 32px 48px;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(480px, 1fr));
+            gap: 20px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        /* === CARD === */
+        .card {
+            background: var(--bg-card);
+            border-radius: var(--radius);
+            overflow: hidden;
+            box-shadow: var(--shadow-sm);
+            transition: box-shadow 0.3s, transform 0.3s;
             display: flex;
             flex-direction: column;
-            gap: 16px;
+            animation: cardIn 0.4s ease both;
         }
 
-        .card {
-            background: #111;
-            border: 1px solid #222;
-            border-radius: 6px;
-            padding: 16px;
-            transition: opacity 0.3s;
+        .card:hover {
+            box-shadow: var(--shadow-md);
+            transform: translateY(-2px);
         }
 
-        .card.seen {
-            opacity: 0.5;
+        .card.seen { opacity: 0.55; }
+        .card.seen:hover { opacity: 0.8; }
+
+        @keyframes cardIn {
+            from { opacity: 0; transform: translateY(12px); }
+            to { opacity: 1; transform: translateY(0); }
         }
 
-        .card-header {
+        /* Photo grid */
+        .card-photos {
+            position: relative;
+            display: grid;
+            gap: 2px;
+            overflow: hidden;
+            background: var(--border-light);
+            border-radius: var(--radius) var(--radius) 0 0;
+        }
+
+        /* Layout based on photo count */
+        .card-photos.photos-1 {
+            grid-template-columns: 1fr;
+            grid-template-rows: 240px;
+        }
+
+        .card-photos.photos-2 {
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: 200px;
+        }
+
+        .card-photos.photos-3 {
+            grid-template-columns: 1fr 1fr 1fr;
+            grid-template-rows: 180px;
+        }
+
+        .card-photos.photos-4 {
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: 140px 140px;
+        }
+
+        .card-photos.photos-5 {
+            grid-template-columns: 1fr 1fr 1fr;
+            grid-template-rows: 140px 140px;
+        }
+
+        .card-photos.photos-5 > div:first-child {
+            grid-column: 1 / 3;
+        }
+
+        .card-photos.photos-many {
+            grid-template-columns: 1fr 1fr 1fr;
+            grid-template-rows: 140px 140px;
+        }
+
+        .card-photos.photos-many > div:first-child {
+            grid-column: 1 / 3;
+        }
+
+        .card-photos img {
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+
+        .card-photos img:hover {
+            opacity: 0.9;
+        }
+
+        .card-photos .no-photo {
             display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            gap: 12px;
-            margin-bottom: 8px;
+            align-items: center;
+            justify-content: center;
+            min-height: 140px;
+            color: var(--text-muted);
+            font-size: 13px;
+            font-style: italic;
         }
 
-        .card-title {
-            color: #00ff41;
+        .card-photos > div {
+            overflow: hidden;
+        }
+
+        .card-photos > div img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .photo-more {
+            position: relative;
+            cursor: pointer;
+        }
+
+        .photo-more::after {
+            content: attr(data-remaining);
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0,0,0,0.45);
+            color: #fff;
+            font-size: 15px;
             font-weight: 600;
-            text-decoration: underline;
-            text-underline-offset: 3px;
-        }
-
-        .card-title:hover {
-            color: #41ff7f;
+            backdrop-filter: blur(2px);
         }
 
         .badge-new {
-            background: #00ff41;
-            color: #0a0a0a;
-            font-size: 10px;
-            font-weight: 600;
-            padding: 2px 8px;
-            border-radius: 3px;
-            white-space: nowrap;
-        }
-
-        .card-details {
-            font-size: 13px;
-            margin-bottom: 12px;
-        }
-
-        .card-details .price {
-            color: #00ff41;
-            font-weight: 600;
-            font-size: 16px;
-        }
-
-        .card-details .location,
-        .card-details .info {
-            color: #888;
-            margin-top: 4px;
-        }
-
-        .card-details .added-date {
-            color: #666;
-            margin-top: 6px;
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: var(--accent);
+            color: #fff;
             font-size: 11px;
+            font-weight: 600;
+            padding: 3px 10px;
+            border-radius: 20px;
+            z-index: 3;
+            letter-spacing: 0.03em;
+            text-transform: uppercase;
         }
 
-        .photo-strip {
+        /* Card body */
+        .card-body {
+            padding: 16px 18px 18px;
             display: flex;
+            flex-direction: column;
             gap: 8px;
-            overflow-x: auto;
-            padding: 8px 0;
-            scrollbar-width: thin;
-            scrollbar-color: #333 transparent;
+            flex: 1;
         }
 
-        .photo-strip::-webkit-scrollbar {
-            height: 6px;
+        .card-price {
+            font-family: 'Fraunces', Georgia, serif;
+            font-size: 22px;
+            color: var(--text-primary);
+            letter-spacing: -0.02em;
+            line-height: 1.2;
         }
 
-        .photo-strip::-webkit-scrollbar-thumb {
-            background: #333;
-            border-radius: 3px;
+        .card-title {
+            color: var(--accent);
+            font-weight: 500;
+            font-size: 14px;
+            text-decoration: none;
+            line-height: 1.4;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
         }
 
-        .photo-strip img {
-            height: 100px;
-            border-radius: 4px;
-            cursor: pointer;
-            border: 1px solid #222;
-            flex-shrink: 0;
+        .card-title:hover {
+            color: #f09558;
         }
 
-        .photo-strip img:hover {
-            border-color: #00ff41;
+        .card-info {
+            font-size: 13px;
+            color: var(--text-secondary);
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px 12px;
         }
 
-        .photo-count {
-            font-size: 11px;
-            color: #666;
-            margin-top: 4px;
+        .card-info span {
+            display: flex;
+            align-items: center;
+            gap: 4px;
         }
 
-        .card-actions {
-            margin-top: 12px;
+        .card-meta {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-top: auto;
+            padding-top: 12px;
+            border-top: 1px solid var(--border-light);
+        }
+
+        .card-date {
+            font-size: 12px;
+            color: var(--text-muted);
         }
 
         .btn-ack {
             background: transparent;
-            color: #00ff41;
-            border: 1px solid #00ff41;
-            padding: 4px 12px;
+            color: var(--text-muted);
+            border: 1px solid var(--border);
+            padding: 5px 14px;
             font-family: inherit;
             font-size: 12px;
+            font-weight: 500;
             cursor: pointer;
-            border-radius: 4px;
+            border-radius: 20px;
+            transition: all 0.2s;
         }
 
         .btn-ack:hover {
-            background: #00ff41;
-            color: #0a0a0a;
+            border-color: var(--accent);
+            color: var(--accent);
+            background: var(--accent-light);
         }
 
-        .log-link {
-            color: #888;
-            font-size: 12px;
-            text-decoration: none;
-            border: 1px solid #333;
-            padding: 6px 12px;
+        /* === LIGHTBOX === */
+        .lightbox {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.92);
+            z-index: 1000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            cursor: zoom-out;
+            backdrop-filter: blur(8px);
+            animation: lbIn 0.2s ease;
+        }
+
+        .lightbox.open { display: flex; }
+
+        @keyframes lbIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .lightbox img {
+            max-width: 90vw;
+            max-height: 90vh;
+            object-fit: contain;
             border-radius: 4px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
         }
 
-        .log-link:hover {
-            border-color: #00ff41;
-            color: #00ff41;
+        .lightbox-close {
+            position: absolute;
+            top: 20px;
+            right: 24px;
+            color: rgba(255,255,255,0.7);
+            font-size: 28px;
+            cursor: pointer;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: background 0.2s;
         }
 
+        .lightbox-close:hover {
+            background: rgba(255,255,255,0.1);
+            color: #fff;
+        }
+
+        .lightbox-nav {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            color: rgba(255,255,255,0.7);
+            font-size: 36px;
+            cursor: pointer;
+            width: 48px;
+            height: 48px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: background 0.2s;
+        }
+
+        .lightbox-nav:hover {
+            background: rgba(255,255,255,0.1);
+            color: #fff;
+        }
+
+        .lightbox-nav.prev { left: 20px; }
+        .lightbox-nav.next { right: 20px; }
+
+        /* === EMPTY STATE === */
         .empty-state {
+            grid-column: 1 / -1;
             text-align: center;
-            padding: 48px;
-            color: #555;
+            padding: 80px 24px;
+            color: var(--text-muted);
+            font-size: 15px;
         }
 
-        .total-count {
-            font-size: 12px;
-            color: #555;
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+            opacity: 0.3;
         }
+
+        /* === RESPONSIVE === */
+        @media (max-width: 768px) {
+            .header { padding: 16px 20px; }
+            .controls { padding: 12px 20px; }
+            .listings { padding: 8px 16px 40px; grid-template-columns: 1fr; }
+            .header h1 { font-size: 20px; }
+            .card-photos.photos-many,
+            .card-photos.photos-5 { grid-template-rows: 100px 100px; }
+            .card-photos.photos-4 { grid-template-rows: 110px 110px; }
+            .card-photos.photos-3 { grid-template-rows: 130px; }
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
     </style>
 </head>
 <body>
     <div class="header">
-        <h1>// imobiliare watcher</h1>
-        <div class="header-info">
-            <span id="lastScrape">Last scrape: --</span>
-            <span><span class="health-dot" id="healthDot"></span><span id="healthText">--</span></span>
+        <div class="header-left">
+            <h1>Imobiliare</h1>
+            <div class="header-status">
+                <span class="health-dot" id="healthDot"></span>
+                <span id="healthText">--</span>
+                <span style="margin-left: 4px; opacity: 0.5;">|</span>
+                <span id="lastScrape" style="margin-left: 4px;">--</span>
+            </div>
+        </div>
+        <div class="header-right">
+            <a class="log-link" href="/log">Scrape log</a>
         </div>
     </div>
-    <div class="warning-banner" id="warningBanner">Scraper may be down - last successful run was over 2 hours ago</div>
+    <div class="warning-banner" id="warningBanner">Scraper may be down — last successful run was over 2 hours ago</div>
+
     <div class="controls">
-        <div class="filter-toggle">
-            <button class="filter-btn active" data-filter="new" onclick="setFilter('new')">New only</button>
-            <button class="filter-btn" data-filter="all" onclick="setFilter('all')">All</button>
+        <div class="controls-left">
+            <div class="filter-toggle">
+                <button class="filter-btn active" data-filter="new" onclick="setFilter('new')">New</button>
+                <button class="filter-btn" data-filter="all" onclick="setFilter('all')">All</button>
+            </div>
+            <select class="sort-select" id="sortSelect" onchange="setSort(this.value)">
+                <option value="newest">Newest first</option>
+                <option value="oldest">Oldest first</option>
+                <option value="price_high">Price: high to low</option>
+                <option value="price_low">Price: low to high</option>
+            </select>
+            <span class="total-count" id="totalCount"></span>
         </div>
-        <select class="sort-select" id="sortSelect" onchange="setSort(this.value)">
-            <option value="newest">Newest first</option>
-            <option value="oldest">Oldest first</option>
-            <option value="price_high">Price: high → low</option>
-            <option value="price_low">Price: low → high</option>
-        </select>
-        <a class="log-link" href="/log">Scrape log</a>
-        <span class="total-count" id="totalCount"></span>
-        <div class="pagination">
-            <button id="prevBtn" onclick="prevPage()" disabled>&lt; Prev</button>
-            <span id="pageInfo">--</span>
-            <button id="nextBtn" onclick="nextPage()" disabled>Next &gt;</button>
+        <div class="controls-right">
+            <div class="pagination">
+                <button id="prevBtn" onclick="prevPage()" disabled>&#8592; Prev</button>
+                <span id="pageInfo">--</span>
+                <button id="nextBtn" onclick="nextPage()" disabled>Next &#8594;</button>
+            </div>
         </div>
     </div>
+
     <div class="listings" id="listings"></div>
+
+    <!-- Lightbox -->
+    <div class="lightbox" id="lightbox" onclick="closeLightbox(event)">
+        <div class="lightbox-close" onclick="closeLightbox(event)">&#10005;</div>
+        <div class="lightbox-nav prev" onclick="lightboxPrev(event)">&#8249;</div>
+        <img id="lightboxImg" src="" alt="photo">
+        <div class="lightbox-nav next" onclick="lightboxNext(event)">&#8250;</div>
+    </div>
 
     <script>
         let currentPage = 1;
@@ -336,6 +617,10 @@
         const perPage = 50;
         let totalPages = 1;
         let refreshTimer = null;
+
+        // Lightbox state
+        let lbPhotos = [];
+        let lbIndex = 0;
 
         function setSort(sort) {
             currentSort = sort;
@@ -358,41 +643,101 @@
         function renderListings(data) {
             const container = document.getElementById('listings');
             if (!data.listings.length) {
-                container.innerHTML = '<div class="empty-state">No listings found</div>';
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">&#9675;</div>
+                        <div>No listings found</div>
+                    </div>`;
                 return;
             }
-            container.innerHTML = data.listings.map(l => `
-                <div class="card ${l.is_new ? '' : 'seen'}" id="card-${l.id}">
-                    <div class="card-header">
+            container.innerHTML = data.listings.map((l, idx) => {
+                const hasPhotos = l.photo_urls && l.photo_urls.length;
+                const photoCount = hasPhotos ? l.photo_urls.length : 0;
+                const maxVisible = 6;
+                const remaining = photoCount - maxVisible;
+                const dateStr = new Date(l.first_seen).toLocaleDateString('en-GB', {
+                    day: 'numeric', month: 'short', year: 'numeric'
+                });
+
+                let gridClass = 'photos-1';
+                if (photoCount === 2) gridClass = 'photos-2';
+                else if (photoCount === 3) gridClass = 'photos-3';
+                else if (photoCount === 4) gridClass = 'photos-4';
+                else if (photoCount === 5) gridClass = 'photos-5';
+                else if (photoCount >= 6) gridClass = 'photos-many';
+
+                const visiblePhotos = hasPhotos ? l.photo_urls.slice(0, maxVisible) : [];
+
+                return `
+                <div class="card ${l.is_new ? '' : 'seen'}" id="card-${l.id}" style="animation-delay: ${Math.min(idx * 40, 600)}ms">
+                    <div class="card-photos ${hasPhotos ? gridClass : ''}" data-photos='${hasPhotos ? JSON.stringify(l.photo_urls) : "[]"}'>
+                        ${l.is_new ? '<span class="badge-new">New</span>' : ''}
+                        ${hasPhotos ? visiblePhotos.map((url, i) => {
+                            const isLast = i === maxVisible - 1 && remaining > 0;
+                            return `<${isLast ? 'div class="photo-more"' : 'div'} ${isLast ? `data-remaining="+${remaining}"` : ''}>
+                                <img src="${esc(url)}" alt="photo" loading="lazy" onclick="openLightbox(JSON.parse(this.closest('.card-photos').dataset.photos), ${i})">
+                            </div>`;
+                        }).join('') : '<div class="no-photo">No photos</div>'}
+                    </div>
+                    <div class="card-body">
+                        <div class="card-price">${esc(l.price || 'No price')}</div>
                         <a class="card-title" href="${esc(l.url)}" target="_blank">${esc(l.title || 'Untitled')}</a>
-                        ${l.is_new ? '<span class="badge-new">NEW</span>' : ''}
-                    </div>
-                    <div class="card-details">
-                        <div class="price">${esc(l.price || 'No price')}</div>
-                        <div class="location">${esc(l.location || '')}</div>
-                        <div class="info">${esc(l.details || '')}</div>
-                        <div class="added-date">Added ${new Date(l.first_seen).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
-                    </div>
-                    ${l.photo_urls && l.photo_urls.length ? `
-                        <div class="photo-strip">
-                            ${l.photo_urls.map(url => `<img src="${esc(url)}" onclick="window.open('${esc(url)}', '_blank')" alt="photo" loading="lazy">`).join('')}
+                        <div class="card-info">
+                            ${l.location ? `<span>${esc(l.location)}</span>` : ''}
+                            ${l.details ? `<span>${esc(l.details)}</span>` : ''}
                         </div>
-                        <div class="photo-count">${l.photo_urls.length} photo${l.photo_urls.length !== 1 ? 's' : ''}</div>
-                    ` : ''}
-                    ${l.is_new ? `
-                        <div class="card-actions">
-                            <button class="btn-ack" onclick="acknowledge('${l.id}')">Mark as seen</button>
+                        <div class="card-meta">
+                            <span class="card-date">${dateStr}</span>
+                            ${l.is_new ? `<button class="btn-ack" onclick="acknowledge('${l.id}')">Mark seen</button>` : ''}
                         </div>
-                    ` : ''}
-                </div>
-            `).join('');
+                    </div>
+                </div>`;
+            }).join('');
         }
+
+        // Lightbox
+        function openLightbox(photos, index) {
+            lbPhotos = photos;
+            lbIndex = index || 0;
+            const lb = document.getElementById('lightbox');
+            const img = document.getElementById('lightboxImg');
+            img.src = lbPhotos[lbIndex];
+            lb.classList.add('open');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeLightbox(event) {
+            if (event.target.classList.contains('lightbox-nav') || event.target.closest('.lightbox-nav')) return;
+            document.getElementById('lightbox').classList.remove('open');
+            document.body.style.overflow = '';
+        }
+
+        function lightboxPrev(event) {
+            event.stopPropagation();
+            lbIndex = (lbIndex - 1 + lbPhotos.length) % lbPhotos.length;
+            document.getElementById('lightboxImg').src = lbPhotos[lbIndex];
+        }
+
+        function lightboxNext(event) {
+            event.stopPropagation();
+            lbIndex = (lbIndex + 1) % lbPhotos.length;
+            document.getElementById('lightboxImg').src = lbPhotos[lbIndex];
+        }
+
+        // Keyboard nav for lightbox
+        document.addEventListener('keydown', function(e) {
+            const lb = document.getElementById('lightbox');
+            if (!lb.classList.contains('open')) return;
+            if (e.key === 'Escape') { lb.classList.remove('open'); document.body.style.overflow = ''; }
+            if (e.key === 'ArrowLeft') lightboxPrev(e);
+            if (e.key === 'ArrowRight') lightboxNext(e);
+        });
 
         function updateHeader(data) {
             const lastScrape = data.last_scrape
-                ? new Date(data.last_scrape).toLocaleString()
+                ? timeAgo(new Date(data.last_scrape))
                 : 'Never';
-            document.getElementById('lastScrape').textContent = `Last scrape: ${lastScrape}`;
+            document.getElementById('lastScrape').textContent = lastScrape;
 
             const dot = document.getElementById('healthDot');
             const text = document.getElementById('healthText');
@@ -413,12 +758,23 @@
             }
         }
 
+        function timeAgo(date) {
+            const seconds = Math.floor((new Date() - date) / 1000);
+            if (seconds < 60) return 'Just now';
+            const minutes = Math.floor(seconds / 60);
+            if (minutes < 60) return `${minutes}m ago`;
+            const hours = Math.floor(minutes / 60);
+            if (hours < 24) return `${hours}h ago`;
+            const days = Math.floor(hours / 24);
+            return `${days}d ago`;
+        }
+
         function updatePagination(data) {
             totalPages = Math.max(1, Math.ceil(data.total / perPage));
             document.getElementById('pageInfo').textContent = `${currentPage} / ${totalPages}`;
             document.getElementById('prevBtn').disabled = currentPage <= 1;
             document.getElementById('nextBtn').disabled = currentPage >= totalPages;
-            document.getElementById('totalCount').textContent = `${data.total} listings`;
+            document.getElementById('totalCount').textContent = `${data.total} listing${data.total !== 1 ? 's' : ''}`;
         }
 
         function setFilter(f) {
@@ -431,11 +787,11 @@
         }
 
         function prevPage() {
-            if (currentPage > 1) { currentPage--; fetchListings(); }
+            if (currentPage > 1) { currentPage--; fetchListings(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
         }
 
         function nextPage() {
-            if (currentPage < totalPages) { currentPage++; fetchListings(); }
+            if (currentPage < totalPages) { currentPage++; fetchListings(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
         }
 
         async function acknowledge(id) {
@@ -446,8 +802,8 @@
                     card.classList.add('seen');
                     const badge = card.querySelector('.badge-new');
                     if (badge) badge.remove();
-                    const actions = card.querySelector('.card-actions');
-                    if (actions) actions.remove();
+                    const ackBtn = card.querySelector('.btn-ack');
+                    if (ackBtn) ackBtn.remove();
                 }
             } catch (e) {
                 console.error('Acknowledge failed:', e);
