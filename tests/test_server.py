@@ -133,3 +133,24 @@ def test_get_scrape_logs_returns_data(client):
     assert len(data["logs"]) == 1
     assert data["logs"][0]["mode"] == "normal"
     assert data["logs"][0]["new_listings"] == 5
+
+
+def test_get_listings_filter_removed(client):
+    """GET /api/listings?filter=removed returns only removed listings."""
+    db.insert_listings([_make_listing(id="rm1"), _make_listing(id="rm2")])
+    db.mark_removed({"rm1"})
+    resp = client.get("/api/listings?filter=removed")
+    data = resp.get_json()
+    assert data["total"] == 1
+    assert data["listings"][0]["id"] == "rm1"
+    assert data["listings"][0]["removed_at"] is not None
+
+
+def test_get_listings_all_excludes_removed(client):
+    """GET /api/listings?filter=all excludes removed listings."""
+    db.insert_listings([_make_listing(id="ax1"), _make_listing(id="ax2")])
+    db.mark_removed({"ax1"})
+    resp = client.get("/api/listings?filter=all")
+    data = resp.get_json()
+    assert data["total"] == 1
+    assert data["listings"][0]["id"] == "ax2"
