@@ -34,20 +34,23 @@ def extract_listing_id(dom_id):
 
 
 def extract_photos_from_json(text, max_photos=10):
-    """Find CDN image URLs in page text (script tags, inline JSON, etc).
+    """Find listing photo URLs in page text.
 
-    Searches for URLs matching common imobiliare.ro CDN patterns.
+    Listing photos are hosted on i.roamcdn.net (the CDN).
+    Filters out thumbnails (listing-thumb) and keeps full-size images.
     Deduplicates and caps at max_photos.
     """
     if not text:
         return []
-    pattern = r'https?://[^"\'\s]*?imobiliare\.ro[^"\'\s]*?\.(?:jpg|jpeg|png|webp)'
+    pattern = r'https?://i\.roamcdn\.net/[^"\'\s]*?\.(?:jpg|jpeg|png|webp)'
     urls = re.findall(pattern, text, re.IGNORECASE)
-    # Deduplicate while preserving order
+    # Deduplicate while preserving order, skip small thumbnails
     seen = set()
     unique = []
     for url in urls:
-        if url not in seen:
+        # Normalize: skip if we already have this image in a different size
+        # The URL path contains the image hash which is the same across sizes
+        if url not in seen and "listing-thumb" not in url:
             seen.add(url)
             unique.append(url)
     return unique[:max_photos]
@@ -252,13 +255,13 @@ def _fetch_photos(page, url, max_photos):
         if photos:
             return photos
 
-        # Fallback: extract from img tags
+        # Fallback: extract from img tags on the CDN
         imgs = page.query_selector_all("img")
         urls = []
         seen = set()
         for img in imgs:
             src = img.get_attribute("src") or ""
-            if "imobiliare" in src and re.search(r'\.(jpg|jpeg|png|webp)', src, re.IGNORECASE):
+            if "roamcdn.net" in src and "listing-thumb" not in src:
                 if src not in seen:
                     seen.add(src)
                     urls.append(src)

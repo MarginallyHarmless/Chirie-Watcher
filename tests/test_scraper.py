@@ -12,25 +12,25 @@ def test_extract_listing_id():
 
 
 def test_extract_photos_from_json():
-    """extract_photos_from_json finds CDN image URLs in script content."""
+    """extract_photos_from_json finds roamcdn image URLs in page content."""
     from scraper import extract_photos_from_json
     script_content = '''
     {"images": [
-        {"url": "https://cdn.imobiliare.ro/foto/1.jpg"},
-        {"url": "https://cdn.imobiliare.ro/foto/2.jpg"},
-        {"url": "https://cdn.imobiliare.ro/foto/3.jpg"}
+        {"url": "https://i.roamcdn.net/prop/imo/fullsize/abc123/photo1.jpg"},
+        {"url": "https://i.roamcdn.net/prop/imo/fullsize/abc123/photo2.jpg"},
+        {"url": "https://i.roamcdn.net/prop/imo/fullsize/abc123/photo3.jpg"}
     ]}
     '''
     urls = extract_photos_from_json(script_content, max_photos=10)
     assert len(urls) == 3
-    assert all("cdn.imobiliare.ro" in u for u in urls)
+    assert all("roamcdn.net" in u for u in urls)
 
 
 def test_extract_photos_from_json_caps_at_max():
     """extract_photos_from_json respects max_photos limit."""
     from scraper import extract_photos_from_json
     script_content = json.dumps({
-        "images": [{"url": f"https://cdn.imobiliare.ro/foto/{i}.jpg"} for i in range(20)]
+        "images": [{"url": f"https://i.roamcdn.net/prop/imo/fullsize/abc/{i}.jpg"} for i in range(20)]
     })
     urls = extract_photos_from_json(script_content, max_photos=10)
     assert len(urls) == 10
@@ -41,13 +41,27 @@ def test_extract_photos_from_json_deduplicates():
     from scraper import extract_photos_from_json
     script_content = '''
     {"images": [
-        {"url": "https://cdn.imobiliare.ro/foto/1.jpg"},
-        {"url": "https://cdn.imobiliare.ro/foto/1.jpg"},
-        {"url": "https://cdn.imobiliare.ro/foto/2.jpg"}
+        {"url": "https://i.roamcdn.net/prop/imo/fullsize/abc/1.jpg"},
+        {"url": "https://i.roamcdn.net/prop/imo/fullsize/abc/1.jpg"},
+        {"url": "https://i.roamcdn.net/prop/imo/fullsize/abc/2.jpg"}
     ]}
     '''
     urls = extract_photos_from_json(script_content, max_photos=10)
     assert len(urls) == 2
+
+
+def test_extract_photos_from_json_skips_thumbnails():
+    """extract_photos_from_json skips listing-thumb URLs."""
+    from scraper import extract_photos_from_json
+    script_content = '''
+    {"images": [
+        {"url": "https://i.roamcdn.net/prop/imo/listing-thumb-400w/abc/photo1.jpg"},
+        {"url": "https://i.roamcdn.net/prop/imo/fullsize/abc/photo2.jpg"}
+    ]}
+    '''
+    urls = extract_photos_from_json(script_content, max_photos=10)
+    assert len(urls) == 1
+    assert "fullsize" in urls[0]
 
 
 def test_extract_photos_from_json_no_match():
