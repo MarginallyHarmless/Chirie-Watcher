@@ -198,3 +198,50 @@ def get_scrape_logs():
     logs = [dict(row) for row in rows]
     conn.close()
     return logs
+
+
+def get_active_ids():
+    """Return set of IDs for all non-removed listings."""
+    conn = _connect()
+    cursor = conn.execute("SELECT id FROM listings WHERE removed_at IS NULL")
+    result = {row["id"] for row in cursor.fetchall()}
+    conn.close()
+    return result
+
+
+def get_removed_ids():
+    """Return set of IDs for all removed listings."""
+    conn = _connect()
+    cursor = conn.execute("SELECT id FROM listings WHERE removed_at IS NOT NULL")
+    result = {row["id"] for row in cursor.fetchall()}
+    conn.close()
+    return result
+
+
+def mark_removed(ids):
+    """Set removed_at = now for the given listing IDs."""
+    if not ids:
+        return
+    conn = _connect()
+    now = datetime.now(timezone.utc).isoformat()
+    placeholders = ",".join("?" for _ in ids)
+    conn.execute(
+        f"UPDATE listings SET removed_at = ? WHERE id IN ({placeholders})",
+        [now] + list(ids),
+    )
+    conn.commit()
+    conn.close()
+
+
+def relist(ids):
+    """Clear removed_at and mark as new for relisted listings."""
+    if not ids:
+        return
+    conn = _connect()
+    placeholders = ",".join("?" for _ in ids)
+    conn.execute(
+        f"UPDATE listings SET removed_at = NULL, is_new = 1 WHERE id IN ({placeholders})",
+        list(ids),
+    )
+    conn.commit()
+    conn.close()

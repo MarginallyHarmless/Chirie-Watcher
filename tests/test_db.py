@@ -240,3 +240,54 @@ def test_init_db_creates_removed_at_column():
     columns = {row[1] for row in cursor.fetchall()}
     conn.close()
     assert "removed_at" in columns
+
+
+def test_get_active_ids():
+    """get_active_ids returns IDs of listings that are not removed."""
+    db.insert_listings([_make_listing(id="a1"), _make_listing(id="a2"), _make_listing(id="a3")])
+    # Manually mark a3 as removed
+    conn = db._connect()
+    conn.execute("UPDATE listings SET removed_at = '2026-04-08T00:00:00' WHERE id = 'a3'")
+    conn.commit()
+    conn.close()
+    active = db.get_active_ids()
+    assert active == {"a1", "a2"}
+
+
+def test_mark_removed():
+    """mark_removed sets removed_at for given IDs."""
+    db.insert_listings([_make_listing(id="r1"), _make_listing(id="r2"), _make_listing(id="r3")])
+    db.mark_removed({"r1", "r3"})
+    result = db.get_listings(page=1, per_page=50, filter_type="all")
+    removed_ids = {l["id"] for l in result["listings"] if l["removed_at"] is not None}
+    active_ids = {l["id"] for l in result["listings"] if l["removed_at"] is None}
+    assert removed_ids == {"r1", "r3"}
+    assert active_ids == {"r2"}
+
+
+def test_mark_removed_empty():
+    """mark_removed with empty set does nothing."""
+    db.insert_listings([_make_listing(id="e1")])
+    db.mark_removed(set())
+    result = db.get_listings(page=1, per_page=50, filter_type="all")
+    assert result["listings"][0]["removed_at"] is None
+
+
+def test_relist():
+    """relist clears removed_at and sets is_new=1 for given IDs."""
+    db.insert_listings([_make_listing(id="rl1")])
+    db.mark_removed({"rl1"})
+    db.relist({"rl1"})
+    result = db.get_listings(page=1, per_page=50, filter_type="all")
+    listing = result["listings"][0]
+    assert listing["removed_at"] is None
+    assert listing["is_new"] == 1
+
+
+def test_relist_empty():
+    """relist with empty set does nothing."""
+    db.insert_listings([_make_listing(id="re1")])
+    db.mark_removed({"re1"})
+    db.relist(set())
+    result = db.get_listings(page=1, per_page=50, filter_type="all")
+    assert result["listings"][0]["removed_at"] is not None
