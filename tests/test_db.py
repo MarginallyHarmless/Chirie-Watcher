@@ -142,3 +142,91 @@ def test_update_photos():
     db.update_photos("up1", new_urls)
     result = db.get_listings(page=1, per_page=50, filter_type="all")
     assert result["listings"][0]["photo_urls"] == new_urls
+
+
+def test_init_db_creates_scrape_logs_table():
+    """init_db should create the scrape_logs table."""
+    import sqlite3
+    conn = sqlite3.connect(db._get_db_path())
+    cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='scrape_logs'")
+    assert cursor.fetchone() is not None
+    conn.close()
+
+
+def test_insert_scrape_log_success():
+    """insert_scrape_log stores a success entry."""
+    db.insert_scrape_log(
+        started_at="2026-04-07T14:00:00+00:00",
+        finished_at="2026-04-07T14:02:13+00:00",
+        mode="normal",
+        new_listings=5,
+        total_found=48,
+        status="success",
+        error_message=None,
+        duration_seconds=133.2,
+    )
+    logs = db.get_scrape_logs()
+    assert len(logs) == 1
+    assert logs[0]["mode"] == "normal"
+    assert logs[0]["new_listings"] == 5
+    assert logs[0]["total_found"] == 48
+    assert logs[0]["status"] == "success"
+    assert logs[0]["error_message"] is None
+    assert logs[0]["duration_seconds"] == 133.2
+
+
+def test_insert_scrape_log_error():
+    """insert_scrape_log stores an error entry."""
+    db.insert_scrape_log(
+        started_at="2026-04-07T14:00:00+00:00",
+        finished_at="2026-04-07T14:00:05+00:00",
+        mode="normal",
+        new_listings=0,
+        total_found=0,
+        status="error",
+        error_message="TimeoutError: page load timed out",
+        duration_seconds=5.0,
+    )
+    logs = db.get_scrape_logs()
+    assert len(logs) == 1
+    assert logs[0]["status"] == "error"
+    assert "TimeoutError" in logs[0]["error_message"]
+
+
+def test_get_scrape_logs_ordered_newest_first():
+    """get_scrape_logs returns most recent first."""
+    db.insert_scrape_log(
+        started_at="2026-04-07T10:00:00+00:00",
+        finished_at="2026-04-07T10:01:00+00:00",
+        mode="normal", new_listings=1, total_found=10,
+        status="success", error_message=None, duration_seconds=60.0,
+    )
+    db.insert_scrape_log(
+        started_at="2026-04-07T12:00:00+00:00",
+        finished_at="2026-04-07T12:01:00+00:00",
+        mode="seed", new_listings=50, total_found=100,
+        status="success", error_message=None, duration_seconds=60.0,
+    )
+    logs = db.get_scrape_logs()
+    assert len(logs) == 2
+    assert logs[0]["mode"] == "seed"  # most recent
+    assert logs[1]["mode"] == "normal"
+
+
+def test_scrape_logs_pruned_to_200():
+    """insert_scrape_log prunes old entries beyond 200."""
+    for i in range(205):
+        db.insert_scrape_log(
+            started_at=f"2026-04-07T{i:05d}",
+            finished_at=f"2026-04-07T{i:05d}",
+            mode="normal", new_listings=0, total_found=0,
+            status="success", error_message=None, duration_seconds=1.0,
+        )
+    logs = db.get_scrape_logs()
+    assert len(logs) == 200
+
+
+def test_get_scrape_logs_empty():
+    """get_scrape_logs returns empty list when no logs exist."""
+    logs = db.get_scrape_logs()
+    assert logs == []

@@ -34,6 +34,19 @@ def init_db():
             is_new INTEGER DEFAULT 1
         )
     """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS scrape_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            started_at DATETIME NOT NULL,
+            finished_at DATETIME,
+            mode TEXT NOT NULL,
+            new_listings INTEGER DEFAULT 0,
+            total_found INTEGER DEFAULT 0,
+            status TEXT NOT NULL,
+            error_message TEXT,
+            duration_seconds REAL
+        )
+    """)
     conn.commit()
     conn.close()
 
@@ -76,16 +89,24 @@ def insert_listings(listings):
     conn.close()
 
 
-def get_listings(page=1, per_page=50, filter_type="all"):
+def get_listings(page=1, per_page=50, filter_type="all", sort="newest"):
     conn = _connect()
     where = "WHERE is_new = 1" if filter_type == "new" else ""
 
     count_row = conn.execute(f"SELECT COUNT(*) as cnt FROM listings {where}").fetchone()
     total = count_row["cnt"]
 
+    order_clauses = {
+        "newest": "first_seen DESC",
+        "oldest": "first_seen ASC",
+        "price_high": "CAST(REPLACE(REPLACE(REPLACE(price, ' EUR', ''), ' RON', ''), '.', '') AS INTEGER) DESC",
+        "price_low": "CAST(REPLACE(REPLACE(REPLACE(price, ' EUR', ''), ' RON', ''), '.', '') AS INTEGER) ASC",
+    }
+    order = order_clauses.get(sort, "first_seen DESC")
+
     offset = (page - 1) * per_page
     rows = conn.execute(
-        f"SELECT * FROM listings {where} ORDER BY first_seen DESC LIMIT ? OFFSET ?",
+        f"SELECT * FROM listings {where} ORDER BY {order} LIMIT ? OFFSET ?",
         (per_page, offset),
     ).fetchall()
 
@@ -142,3 +163,32 @@ def update_photos(listing_id, photo_urls):
     )
     conn.commit()
     conn.close()
+
+
+def insert_scrape_log(started_at, finished_at, mode, new_listings, total_found,
+                      status, error_message, duration_seconds):
+    conn = _connect()
+    conn.execute(
+        """INSERT INTO scrape_logs
+           (started_at, finished_at, mode, new_listings, total_found, status, error_message, duration_seconds)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+        (started_at, finished_at, mode, new_listings, total_found, status, error_message, duration_seconds),
+    )
+    # Prune to keep only the most recent 200 entries
+    conn.execute("""
+        DELETE FROM scrape_logs WHERE id NOT IN (
+            SELECT id FROM scrape_logs ORDER BY started_at DESC LIMIT 200
+        )
+    """)
+    conn.commit()
+    conn.close()
+
+
+def get_scrape_logs():
+    conn = _connect()
+    rows = conn.execute(
+        "SELECT * FROM scrape_logs ORDER BY started_at DESC LIMIT 200"
+    ).fetchall()
+    logs = [dict(row) for row in rows]
+    conn.close()
+    return logs
