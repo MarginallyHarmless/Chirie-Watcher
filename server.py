@@ -25,7 +25,8 @@ def get_listings():
     per_page = request.args.get("per_page", 50, type=int)
     filter_type = request.args.get("filter", "new")
 
-    result = db.get_listings(page=page, per_page=per_page, filter_type=filter_type)
+    sort = request.args.get("sort", "newest")
+    result = db.get_listings(page=page, per_page=per_page, filter_type=filter_type, sort=sort)
 
     last_scrape = db.get_last_scrape_time()
     scraper_healthy = False
@@ -53,6 +54,12 @@ def clear():
         return jsonify({"error": "forbidden"}), 403
     db.clear_all()
     return jsonify({"ok": True})
+
+
+@app.route("/api/scrape-logs")
+def get_scrape_logs():
+    logs = db.get_scrape_logs()
+    return jsonify({"logs": logs})
 
 
 if __name__ == "__main__":

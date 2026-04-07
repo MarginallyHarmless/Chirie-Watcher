@@ -106,3 +106,30 @@ def test_clear_with_valid_token(client):
     assert resp.status_code == 200
     result = db.get_listings(page=1, per_page=50, filter_type="all")
     assert result["total"] == 0
+
+
+def test_get_scrape_logs_empty(client):
+    """GET /api/scrape-logs with no logs returns empty list."""
+    resp = client.get("/api/scrape-logs")
+    data = resp.get_json()
+    assert resp.status_code == 200
+    assert data["logs"] == []
+
+
+def test_get_scrape_logs_returns_data(client):
+    """GET /api/scrape-logs returns stored log entries."""
+    db.insert_scrape_log(
+        started_at="2026-04-07T14:00:00+00:00",
+        finished_at="2026-04-07T14:02:13+00:00",
+        mode="normal",
+        new_listings=5,
+        total_found=48,
+        status="success",
+        error_message=None,
+        duration_seconds=133.2,
+    )
+    resp = client.get("/api/scrape-logs")
+    data = resp.get_json()
+    assert len(data["logs"]) == 1
+    assert data["logs"][0]["mode"] == "normal"
+    assert data["logs"][0]["new_listings"] == 5
