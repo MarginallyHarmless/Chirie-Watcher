@@ -351,6 +351,21 @@ def run_normal():
                         telegram_notify.notify_new_listings(new_listings)
                     else:
                         log.info("Scraper complete: no new listings")
+
+                    # Detect removed listings
+                    scraped_ids = set(all_ids)
+                    active_ids = db.get_active_ids()
+                    disappeared_ids = active_ids - scraped_ids
+                    if disappeared_ids:
+                        db.mark_removed(disappeared_ids)
+                        log.info(f"Marked {len(disappeared_ids)} listings as removed")
+
+                    # Detect relisted listings
+                    removed_ids = db.get_removed_ids()
+                    relisted_ids = removed_ids & scraped_ids
+                    if relisted_ids:
+                        db.relist(relisted_ids)
+                        log.info(f"Relisted {len(relisted_ids)} previously removed listings")
             finally:
                 browser.close()
 
