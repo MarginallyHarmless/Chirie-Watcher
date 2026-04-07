@@ -255,6 +255,9 @@
         .card.seen { opacity: 0.55; }
         .card.seen:hover { opacity: 0.8; }
 
+        .card.removed { opacity: 0.7; }
+        .card.removed:hover { opacity: 0.9; }
+
         @keyframes cardIn {
             from { opacity: 0; transform: translateY(12px); }
             to { opacity: 1; transform: translateY(0); }
@@ -370,6 +373,20 @@
             z-index: 3;
             letter-spacing: 0.03em;
             text-transform: uppercase;
+        }
+
+        .badge-removed {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: #6b7280;
+            color: #fff;
+            font-size: 11px;
+            font-weight: 600;
+            padding: 3px 10px;
+            border-radius: 20px;
+            z-index: 3;
+            letter-spacing: 0.03em;
         }
 
         /* Card body */
@@ -582,6 +599,7 @@
             <div class="filter-toggle">
                 <button class="filter-btn active" data-filter="new" onclick="setFilter('new')">New</button>
                 <button class="filter-btn" data-filter="all" onclick="setFilter('all')">All</button>
+                <button class="filter-btn" data-filter="removed" onclick="setFilter('removed')">Removed</button>
             </div>
             <select class="sort-select" id="sortSelect" onchange="setSort(this.value)">
                 <option value="newest">Newest first</option>
@@ -640,6 +658,16 @@
             }
         }
 
+        function durationLabel(firstSeen, removedAt) {
+            const start = new Date(firstSeen);
+            const end = new Date(removedAt);
+            const diffMs = end - start;
+            const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+            if (diffHours < 24) return `Listed ${diffHours}h`;
+            const diffDays = Math.floor(diffHours / 24);
+            return `Listed ${diffDays}d`;
+        }
+
         function renderListings(data) {
             const container = document.getElementById('listings');
             if (!data.listings.length) {
@@ -669,9 +697,10 @@
                 const visiblePhotos = hasPhotos ? l.photo_urls.slice(0, maxVisible) : [];
 
                 return `
-                <div class="card ${l.is_new ? '' : 'seen'}" id="card-${l.id}" style="animation-delay: ${Math.min(idx * 40, 600)}ms">
+                <div class="card ${l.removed_at ? 'removed' : (l.is_new ? '' : 'seen')}" id="card-${l.id}" style="animation-delay: ${Math.min(idx * 40, 600)}ms">
                     <div class="card-photos ${hasPhotos ? gridClass : ''}" data-photos='${hasPhotos ? JSON.stringify(l.photo_urls) : "[]"}'>
                         ${l.is_new ? '<span class="badge-new">New</span>' : ''}
+                        ${l.removed_at ? `<span class="badge-removed">${durationLabel(l.first_seen, l.removed_at)}</span>` : ''}
                         ${hasPhotos ? visiblePhotos.map((url, i) => {
                             const isLast = i === maxVisible - 1 && remaining > 0;
                             return `<${isLast ? 'div class="photo-more"' : 'div'} ${isLast ? `data-remaining="+${remaining}"` : ''}>
@@ -688,7 +717,7 @@
                         </div>
                         <div class="card-meta">
                             <span class="card-date">${dateStr}</span>
-                            ${l.is_new ? `<button class="btn-ack" onclick="acknowledge('${l.id}')">Mark seen</button>` : ''}
+                            ${l.is_new && !l.removed_at ? `<button class="btn-ack" onclick="acknowledge('${l.id}')">Mark seen</button>` : ''}
                         </div>
                     </div>
                 </div>`;
