@@ -22,3 +22,7 @@ BACKFILL_BATCH_SIZE = 10       # listings to backfill photos for per run
 
 # Dashboard
 CLEAR_TOKEN = "v45kWTa9pBx6iUvmuAb9pA"      # token required for /api/clear endpoint
+
+# Telegram notifications
+TELEGRAM_BOT_TOKEN = "7916818431:AAFYSGfYv9QZgjcnN-5Hf8Wd1RjhtAsNlkQ"
+TELEGRAM_CHAT_ID = "933530616"

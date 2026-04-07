@@ -12,6 +12,7 @@ from playwright_stealth import stealth_sync
 
 import config
 import db
+import telegram_notify
 
 logging.basicConfig(
     level=logging.INFO,
@@ -347,6 +348,7 @@ def run_normal():
                         db.insert_listings(new_listings)
                         new_count = len(new_listings)
                         log.info(f"Scraper complete: {new_count} new listings added")
+                        telegram_notify.notify_new_listings(new_listings)
                     else:
                         log.info("Scraper complete: no new listings")
             finally:
