@@ -360,7 +360,8 @@ def run_normal():
                         db.mark_removed(disappeared_ids)
                         log.info(f"Marked {len(disappeared_ids)} listings as removed")
 
-                    # Detect relisted listings
+                    # Detect relisted listings (safe: disappeared_ids and scraped_ids
+                    # are disjoint, so newly-removed IDs won't be relisted)
                     removed_ids = db.get_removed_ids()
                     relisted_ids = removed_ids & scraped_ids
                     if relisted_ids:

@@ -104,7 +104,7 @@ def get_listings(page=1, per_page=50, filter_type="all", sort="newest"):
     elif filter_type == "all":
         where = "WHERE removed_at IS NULL"
     else:
-        where = ""
+        where = "WHERE removed_at IS NULL"
 
     count_row = conn.execute(f"SELECT COUNT(*) as cnt FROM listings {where}").fetchone()
     total = count_row["cnt"]
