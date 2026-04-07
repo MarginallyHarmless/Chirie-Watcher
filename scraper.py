@@ -5,6 +5,7 @@ import random
 import re
 import sys
 import time
+from datetime import datetime, timezone
 
 from playwright.sync_api import sync_playwright
 from playwright_stealth import stealth_sync
@@ -319,89 +320,170 @@ def scrape_search_results(page, max_pages):
 def run_normal():
     """Normal mode: scrape search results, fetch photos for new listings only."""
     db.init_db()
-    with sync_playwright() as pw:
-        browser, page = _launch_browser(pw)
-        try:
-            all_listings = scrape_search_results(page, config.MAX_PAGES)
-            if not all_listings:
-                log.info("No listings found on search page.")
-                return
+    started_at = datetime.now(timezone.utc)
+    new_count = 0
+    total_count = 0
+    try:
+        with sync_playwright() as pw:
+            browser, page = _launch_browser(pw)
+            try:
+                all_listings = scrape_search_results(page, config.MAX_PAGES)
+                total_count = len(all_listings)
+                if not all_listings:
+                    log.info("No listings found on search page.")
+                else:
+                    all_ids = [l["id"] for l in all_listings]
+                    existing_ids = db.get_existing_ids(all_ids)
+                    new_listings = [l for l in all_listings if l["id"] not in existing_ids]
+                    log.info(f"Found {len(all_listings)} total, {len(new_listings)} new")
 
-            all_ids = [l["id"] for l in all_listings]
-            existing_ids = db.get_existing_ids(all_ids)
-            new_listings = [l for l in all_listings if l["id"] not in existing_ids]
-            log.info(f"Found {len(all_listings)} total, {len(new_listings)} new")
+                    for listing in new_listings:
+                        log.info(f"Fetching photos for {listing['id']}: {listing['url']}")
+                        listing["photo_urls"] = _fetch_photos(page, listing["url"], config.MAX_PHOTOS)
+                        log.info(f"  Got {len(listing['photo_urls'])} photos")
+                        _random_delay(config.DETAIL_PAGE_DELAY)
 
-            for listing in new_listings:
-                log.info(f"Fetching photos for {listing['id']}: {listing['url']}")
-                listing["photo_urls"] = _fetch_photos(page, listing["url"], config.MAX_PHOTOS)
-                log.info(f"  Got {len(listing['photo_urls'])} photos")
-                _random_delay(config.DETAIL_PAGE_DELAY)
+                    if new_listings:
+                        db.insert_listings(new_listings)
+                        new_count = len(new_listings)
+                        log.info(f"Scraper complete: {new_count} new listings added")
+                    else:
+                        log.info("Scraper complete: no new listings")
+            finally:
+                browser.close()
 
-            if new_listings:
-                db.insert_listings(new_listings)
-                log.info(f"Scraper complete: {len(new_listings)} new listings added")
-
-                # PHASE 2: Send Telegram notification for new listings
-                # TODO: implement when scraping is verified working
-                # - Use sendMessage for listing details (title, price, location, url)
-                # - Use sendMediaGroup to send up to 10 photos per listing (from photo_urls)
-                # - Bot token and chat ID go in config.py
-                # def notify_telegram(listings): ...
-            else:
-                log.info("Scraper complete: no new listings")
-        finally:
-            browser.close()
+        finished_at = datetime.now(timezone.utc)
+        db.insert_scrape_log(
+            started_at=started_at.isoformat(),
+            finished_at=finished_at.isoformat(),
+            mode="normal",
+            new_listings=new_count,
+            total_found=total_count,
+            status="success",
+            error_message=None,
+            duration_seconds=(finished_at - started_at).total_seconds(),
+        )
+    except Exception as e:
+        finished_at = datetime.now(timezone.utc)
+        db.insert_scrape_log(
+            started_at=started_at.isoformat(),
+            finished_at=finished_at.isoformat(),
+            mode="normal",
+            new_listings=new_count,
+            total_found=total_count,
+            status="error",
+            error_message=str(e),
+            duration_seconds=(finished_at - started_at).total_seconds(),
+        )
+        raise
 
 
 def run_seed():
     """Seed mode: scrape all pages, no photo fetching."""
     db.init_db()
-    with sync_playwright() as pw:
-        browser, page = _launch_browser(pw)
-        try:
-            all_listings = scrape_search_results(page, config.SEED_MAX_PAGES)
-            if not all_listings:
-                log.info("No listings found.")
-                return
+    started_at = datetime.now(timezone.utc)
+    new_count = 0
+    total_count = 0
+    try:
+        with sync_playwright() as pw:
+            browser, page = _launch_browser(pw)
+            try:
+                all_listings = scrape_search_results(page, config.SEED_MAX_PAGES)
+                total_count = len(all_listings)
+                if not all_listings:
+                    log.info("No listings found.")
+                else:
+                    all_ids = [l["id"] for l in all_listings]
+                    existing_ids = db.get_existing_ids(all_ids)
+                    new_listings = [l for l in all_listings if l["id"] not in existing_ids]
+                    log.info(f"Seed: {len(all_listings)} total scraped, {len(new_listings)} new to insert")
 
-            all_ids = [l["id"] for l in all_listings]
-            existing_ids = db.get_existing_ids(all_ids)
-            new_listings = [l for l in all_listings if l["id"] not in existing_ids]
-            log.info(f"Seed: {len(all_listings)} total scraped, {len(new_listings)} new to insert")
+                    if new_listings:
+                        db.insert_listings(new_listings)
+                        new_count = len(new_listings)
+                        log.info(f"Seed complete: {new_count} listings inserted (no photos)")
+                    else:
+                        log.info("Seed complete: all listings already in DB")
+            finally:
+                browser.close()
 
-            if new_listings:
-                db.insert_listings(new_listings)
-                log.info(f"Seed complete: {len(new_listings)} listings inserted (no photos)")
-            else:
-                log.info("Seed complete: all listings already in DB")
-        finally:
-            browser.close()
+        finished_at = datetime.now(timezone.utc)
+        db.insert_scrape_log(
+            started_at=started_at.isoformat(),
+            finished_at=finished_at.isoformat(),
+            mode="seed",
+            new_listings=new_count,
+            total_found=total_count,
+            status="success",
+            error_message=None,
+            duration_seconds=(finished_at - started_at).total_seconds(),
+        )
+    except Exception as e:
+        finished_at = datetime.now(timezone.utc)
+        db.insert_scrape_log(
+            started_at=started_at.isoformat(),
+            finished_at=finished_at.isoformat(),
+            mode="seed",
+            new_listings=new_count,
+            total_found=total_count,
+            status="error",
+            error_message=str(e),
+            duration_seconds=(finished_at - started_at).total_seconds(),
+        )
+        raise
 
 
 def run_backfill():
     """Backfill mode: fetch photos for listings that have none."""
     db.init_db()
-    listings = db.get_listings_without_photos(limit=config.BACKFILL_BATCH_SIZE)
-    if not listings:
-        log.info("Backfill: no listings need photos")
-        return
+    started_at = datetime.now(timezone.utc)
+    total_count = 0
+    try:
+        listings = db.get_listings_without_photos(limit=config.BACKFILL_BATCH_SIZE)
+        total_count = len(listings)
+        if not listings:
+            log.info("Backfill: no listings need photos")
+        else:
+            log.info(f"Backfill: fetching photos for {len(listings)} listings")
+            with sync_playwright() as pw:
+                browser, page = _launch_browser(pw)
+                try:
+                    for listing in listings:
+                        url = listing["url"]
+                        log.info(f"Backfill photos for {listing['id']}: {url}")
+                        photos = _fetch_photos(page, url, config.MAX_PHOTOS)
+                        db.update_photos(listing["id"], photos)
+                        log.info(f"  Got {len(photos)} photos")
+                        _random_delay(config.DETAIL_PAGE_DELAY)
+                finally:
+                    browser.close()
 
-    log.info(f"Backfill: fetching photos for {len(listings)} listings")
-    with sync_playwright() as pw:
-        browser, page = _launch_browser(pw)
-        try:
-            for listing in listings:
-                url = listing["url"]
-                log.info(f"Backfill photos for {listing['id']}: {url}")
-                photos = _fetch_photos(page, url, config.MAX_PHOTOS)
-                db.update_photos(listing["id"], photos)
-                log.info(f"  Got {len(photos)} photos")
-                _random_delay(config.DETAIL_PAGE_DELAY)
-        finally:
-            browser.close()
+            log.info("Backfill complete")
 
-    log.info("Backfill complete")
+        finished_at = datetime.now(timezone.utc)
+        db.insert_scrape_log(
+            started_at=started_at.isoformat(),
+            finished_at=finished_at.isoformat(),
+            mode="backfill",
+            new_listings=0,
+            total_found=total_count,
+            status="success",
+            error_message=None,
+            duration_seconds=(finished_at - started_at).total_seconds(),
+        )
+    except Exception as e:
+        finished_at = datetime.now(timezone.utc)
+        db.insert_scrape_log(
+            started_at=started_at.isoformat(),
+            finished_at=finished_at.isoformat(),
+            mode="backfill",
+            new_listings=0,
+            total_found=total_count,
+            status="error",
+            error_message=str(e),
+            duration_seconds=(finished_at - started_at).total_seconds(),
+        )
+        raise
 
 
 if __name__ == "__main__":
