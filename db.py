@@ -31,7 +31,8 @@ def init_db():
             url TEXT,
             photo_urls TEXT DEFAULT '[]',
             first_seen DATETIME,
-            is_new INTEGER DEFAULT 1
+            is_new INTEGER DEFAULT 1,
+            removed_at DATETIME DEFAULT NULL
         )
     """)
     conn.execute("""
@@ -47,6 +48,11 @@ def init_db():
             duration_seconds REAL
         )
     """)
+    # Migrate: add removed_at if missing (existing DBs)
+    try:
+        conn.execute("ALTER TABLE listings ADD COLUMN removed_at DATETIME DEFAULT NULL")
+    except sqlite3.OperationalError:
+        pass  # column already exists
     conn.commit()
     conn.close()
 

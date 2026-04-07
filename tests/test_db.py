@@ -230,3 +230,13 @@ def test_get_scrape_logs_empty():
     """get_scrape_logs returns empty list when no logs exist."""
     logs = db.get_scrape_logs()
     assert logs == []
+
+
+def test_init_db_creates_removed_at_column():
+    """init_db should create listings table with removed_at column."""
+    import sqlite3
+    conn = sqlite3.connect(db._get_db_path())
+    cursor = conn.execute("PRAGMA table_info(listings)")
+    columns = {row[1] for row in cursor.fetchall()}
+    conn.close()
+    assert "removed_at" in columns
