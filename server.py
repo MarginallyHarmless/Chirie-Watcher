@@ -19,6 +19,11 @@ def index():
     return send_file("dashboard.html")
 
 
+@app.route("/log")
+def log_page():
+    return send_file("log.html")
+
+
 @app.route("/api/listings")
 def get_listings():
     page = request.args.get("page", 1, type=int)

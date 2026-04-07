@@ -273,83 +273,18 @@
             color: #0a0a0a;
         }
 
-        .log-toggle-btn {
-            background: #1a1a1a;
-            color: #c0c0c0;
+        .log-link {
+            color: #888;
+            font-size: 12px;
+            text-decoration: none;
             border: 1px solid #333;
             padding: 6px 12px;
-            font-family: inherit;
-            font-size: 12px;
-            cursor: pointer;
             border-radius: 4px;
         }
 
-        .log-toggle-btn:hover {
+        .log-link:hover {
             border-color: #00ff41;
             color: #00ff41;
-        }
-
-        .scrape-log {
-            display: none;
-            padding: 0 24px 16px;
-            max-height: 350px;
-            overflow-y: auto;
-            scrollbar-width: thin;
-            scrollbar-color: #333 transparent;
-        }
-
-        .scrape-log.visible {
-            display: block;
-        }
-
-        .scrape-log table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 12px;
-        }
-
-        .scrape-log th {
-            text-align: left;
-            color: #555;
-            font-weight: 400;
-            padding: 6px 12px 6px 0;
-            border-bottom: 1px solid #222;
-        }
-
-        .scrape-log td {
-            padding: 6px 12px 6px 0;
-            border-bottom: 1px solid #1a1a1a;
-        }
-
-        .scrape-log tr.error-row {
-            border-left: 3px solid #ff4141;
-        }
-
-        .scrape-log tr.error-row td {
-            color: #ff4141;
-        }
-
-        .scrape-log .error-msg {
-            color: #ff4141;
-            font-size: 11px;
-            padding: 2px 0 6px 0;
-        }
-
-        .log-badge {
-            display: inline-block;
-            padding: 1px 6px;
-            border-radius: 3px;
-            font-size: 11px;
-        }
-
-        .log-badge.ok {
-            background: #002200;
-            color: #00ff41;
-        }
-
-        .log-badge.err {
-            background: #220000;
-            color: #ff4141;
         }
 
         .empty-state {
@@ -384,7 +319,7 @@
             <option value="price_high">Price: high → low</option>
             <option value="price_low">Price: low → high</option>
         </select>
-        <button class="log-toggle-btn" id="logToggleBtn" onclick="toggleLog()">Scrape log</button>
+        <a class="log-link" href="/log">Scrape log</a>
         <span class="total-count" id="totalCount"></span>
         <div class="pagination">
             <button id="prevBtn" onclick="prevPage()" disabled>&lt; Prev</button>
@@ -392,7 +327,6 @@
             <button id="nextBtn" onclick="nextPage()" disabled>Next &gt;</button>
         </div>
     </div>
-    <div class="scrape-log" id="scrapeLog"></div>
     <div class="listings" id="listings"></div>
 
     <script>
@@ -416,7 +350,6 @@
                 renderListings(data);
                 updateHeader(data);
                 updatePagination(data);
-                if (logVisible) fetchScrapeLogs();
             } catch (e) {
                 console.error('Fetch failed:', e);
             }
@@ -525,72 +458,6 @@
             const div = document.createElement('div');
             div.textContent = str;
             return div.innerHTML;
-        }
-
-        let logVisible = false;
-
-        function toggleLog() {
-            logVisible = !logVisible;
-            const el = document.getElementById('scrapeLog');
-            const btn = document.getElementById('logToggleBtn');
-            el.classList.toggle('visible', logVisible);
-            btn.textContent = logVisible ? 'Hide log' : 'Scrape log';
-            if (logVisible) fetchScrapeLogs();
-        }
-
-        async function fetchScrapeLogs() {
-            try {
-                const resp = await fetch('/api/scrape-logs');
-                const data = await resp.json();
-                renderScrapeLogs(data.logs);
-            } catch (e) {
-                console.error('Failed to fetch scrape logs:', e);
-            }
-        }
-
-        function formatDuration(seconds) {
-            if (seconds == null) return '--';
-            const m = Math.floor(seconds / 60);
-            const s = Math.round(seconds % 60);
-            return m > 0 ? `${m}m ${s}s` : `${s}s`;
-        }
-
-        function renderScrapeLogs(logs) {
-            const container = document.getElementById('scrapeLog');
-            if (!logs.length) {
-                container.innerHTML = '<div class="empty-state" style="padding:24px">No scrape logs yet</div>';
-                return;
-            }
-            container.innerHTML = `
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Time</th>
-                            <th>Mode</th>
-                            <th>Result</th>
-                            <th>Duration</th>
-                            <th>Status</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${logs.map(log => `
-                            <tr class="${log.status === 'error' ? 'error-row' : ''}">
-                                <td>${new Date(log.started_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</td>
-                                <td>${esc(log.mode)}</td>
-                                <td>${log.new_listings} new / ${log.total_found} total</td>
-                                <td>${formatDuration(log.duration_seconds)}</td>
-                                <td>${log.status === 'success'
-                                    ? '<span class="log-badge ok">OK</span>'
-                                    : '<span class="log-badge err">ERROR</span>'}</td>
-                            </tr>
-                            ${log.error_message ? `
-                            <tr class="error-row">
-                                <td colspan="5" class="error-msg">${esc(log.error_message)}</td>
-                            </tr>` : ''}
-                        `).join('')}
-                    </tbody>
-                </table>
-            `;
         }
 
         // Initial load
