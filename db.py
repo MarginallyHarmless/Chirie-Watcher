@@ -97,7 +97,14 @@ def insert_listings(listings):
 
 def get_listings(page=1, per_page=50, filter_type="all", sort="newest"):
     conn = _connect()
-    where = "WHERE is_new = 1" if filter_type == "new" else ""
+    if filter_type == "new":
+        where = "WHERE is_new = 1 AND removed_at IS NULL"
+    elif filter_type == "removed":
+        where = "WHERE removed_at IS NOT NULL"
+    elif filter_type == "all":
+        where = "WHERE removed_at IS NULL"
+    else:
+        where = ""
 
     count_row = conn.execute(f"SELECT COUNT(*) as cnt FROM listings {where}").fetchone()
     total = count_row["cnt"]

@@ -258,9 +258,10 @@ def test_mark_removed():
     """mark_removed sets removed_at for given IDs."""
     db.insert_listings([_make_listing(id="r1"), _make_listing(id="r2"), _make_listing(id="r3")])
     db.mark_removed({"r1", "r3"})
-    result = db.get_listings(page=1, per_page=50, filter_type="all")
-    removed_ids = {l["id"] for l in result["listings"] if l["removed_at"] is not None}
-    active_ids = {l["id"] for l in result["listings"] if l["removed_at"] is None}
+    active = db.get_listings(page=1, per_page=50, filter_type="all")
+    removed = db.get_listings(page=1, per_page=50, filter_type="removed")
+    active_ids = {l["id"] for l in active["listings"]}
+    removed_ids = {l["id"] for l in removed["listings"]}
     assert removed_ids == {"r1", "r3"}
     assert active_ids == {"r2"}
 
@@ -289,5 +290,24 @@ def test_relist_empty():
     db.insert_listings([_make_listing(id="re1")])
     db.mark_removed({"re1"})
     db.relist(set())
-    result = db.get_listings(page=1, per_page=50, filter_type="all")
+    result = db.get_listings(page=1, per_page=50, filter_type="removed")
     assert result["listings"][0]["removed_at"] is not None
+
+
+def test_filter_removed():
+    """get_listings with filter 'removed' returns only removed listings."""
+    db.insert_listings([_make_listing(id="fr1"), _make_listing(id="fr2")])
+    db.mark_removed({"fr1"})
+    result = db.get_listings(page=1, per_page=50, filter_type="removed")
+    assert result["total"] == 1
+    assert result["listings"][0]["id"] == "fr1"
+    assert result["listings"][0]["removed_at"] is not None
+
+
+def test_filter_all_excludes_removed():
+    """get_listings with filter 'all' excludes removed listings."""
+    db.insert_listings([_make_listing(id="ae1"), _make_listing(id="ae2")])
+    db.mark_removed({"ae1"})
+    result = db.get_listings(page=1, per_page=50, filter_type="all")
+    assert result["total"] == 1
+    assert result["listings"][0]["id"] == "ae2"
