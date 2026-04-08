@@ -125,11 +125,20 @@ def _get_total_pages(data):
         return 1
 
 
+def _matches_neighborhood(listing):
+    """Check if a listing's location matches any configured neighborhood."""
+    neighborhoods = getattr(config, "STORIA_NEIGHBORHOODS", [])
+    if not neighborhoods:
+        return True
+    location_lower = listing.get("location", "").lower()
+    return any(n in location_lower for n in neighborhoods)
+
+
 def scrape_storia_search_results(page, max_pages):
     """Scrape storia.ro search results using __NEXT_DATA__ JSON.
 
     Uses a single city-level URL (neighborhood filtering doesn't work on storia.ro).
-    Paginates with &page=N.
+    Paginates with &page=N. Filters results by configured neighborhoods.
     """
     all_listings = []
     seen_ids = set()
@@ -161,11 +170,13 @@ def scrape_storia_search_results(page, max_pages):
                 log.info(f"  Storia: {total_pages} total pages")
 
             listings = _extract_listings_from_json(data)
+            # Filter by neighborhood
+            listings = [l for l in listings if _matches_neighborhood(l)]
             new_listings = [l for l in listings if l["id"] not in seen_ids]
             for l in new_listings:
                 seen_ids.add(l["id"])
             all_listings.extend(new_listings)
-            log.info(f"  Storia page {page_num}: {len(listings)} items, {len(new_listings)} new")
+            log.info(f"  Storia page {page_num}: {len(listings)} in neighborhoods, {len(new_listings)} new")
 
             if len(new_listings) == 0:
                 break

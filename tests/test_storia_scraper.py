@@ -105,3 +105,24 @@ def test_get_total_pages_missing():
     """_get_total_pages returns 1 when data is missing."""
     from storia_scraper import _get_total_pages
     assert _get_total_pages({}) == 1
+
+
+def test_matches_neighborhood_hit():
+    """_matches_neighborhood returns True when location contains a configured neighborhood."""
+    from storia_scraper import _matches_neighborhood
+    assert _matches_neighborhood({"location": "Decebal, Sectorul 3, Bucuresti"}) is True
+    assert _matches_neighborhood({"location": "Alba Iulia, Sectorul 2"}) is True
+    assert _matches_neighborhood({"location": "Calea Calarasilor, Sectorul 3"}) is True
+
+
+def test_matches_neighborhood_miss():
+    """_matches_neighborhood returns False when location doesn't match."""
+    from storia_scraper import _matches_neighborhood
+    assert _matches_neighborhood({"location": "Militari, Sectorul 6, Bucuresti"}) is False
+    assert _matches_neighborhood({"location": "Drumul Taberei"}) is False
+
+
+def test_matches_neighborhood_empty_location():
+    """_matches_neighborhood returns False for empty location."""
+    from storia_scraper import _matches_neighborhood
+    assert _matches_neighborhood({"location": ""}) is False

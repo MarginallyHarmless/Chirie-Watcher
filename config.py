@@ -15,6 +15,11 @@ STORIA_SEARCH_URLS = [
     "https://www.storia.ro/ro/rezultate/inchiriere/apartament/bucuresti?priceMin=300&priceMax=800&roomsNumber=%5BTWO%2CTHREE%5D",
 ]
 
+# Neighborhoods to filter storia results by (matched against location text, case-insensitive)
+STORIA_NEIGHBORHOODS = [
+    "decebal", "alba iulia", "unirii", "calea calarasilor", "calarasilor",
+]
+
 # Database
 DB_PATH = os.path.expanduser("~/.local/share/imobiliare-watcher/listings.db")
 
