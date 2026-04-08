@@ -389,6 +389,27 @@
             letter-spacing: 0.03em;
         }
 
+        .card-source {
+            font-size: 11px;
+            color: var(--text-muted);
+            font-weight: 500;
+            text-transform: lowercase;
+        }
+
+        .badge-duplicate {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: #b45309;
+            color: #fff;
+            font-size: 11px;
+            font-weight: 600;
+            padding: 3px 10px;
+            border-radius: 20px;
+            z-index: 3;
+            letter-spacing: 0.03em;
+        }
+
         /* Card body */
         .card-body {
             padding: 16px 18px 18px;
@@ -701,6 +722,7 @@
                     <div class="card-photos ${hasPhotos ? gridClass : ''}" data-photos='${hasPhotos ? JSON.stringify(l.photo_urls) : "[]"}'>
                         ${l.is_new ? '<span class="badge-new">New</span>' : ''}
                         ${l.removed_at ? `<span class="badge-removed">${durationLabel(l.first_seen, l.removed_at)}</span>` : ''}
+                        ${!l.is_new && l.possible_duplicate_of ? '<span class="badge-duplicate">Possible duplicate</span>' : ''}
                         ${hasPhotos ? visiblePhotos.map((url, i) => {
                             const isLast = i === maxVisible - 1 && remaining > 0;
                             return `<${isLast ? 'div class="photo-more"' : 'div'} ${isLast ? `data-remaining="+${remaining}"` : ''}>
@@ -716,7 +738,7 @@
                             ${l.details ? `<span>${esc(l.details)}</span>` : ''}
                         </div>
                         <div class="card-meta">
-                            <span class="card-date">${dateStr}</span>
+                            <span class="card-date">${dateStr}${l.source && l.source !== 'imobiliare' ? ` · <span class="card-source">${esc(l.source)}</span>` : ''}</span>
                             ${l.is_new && !l.removed_at ? `<button class="btn-ack" onclick="acknowledge('${l.id}')">Mark seen</button>` : ''}
                         </div>
                     </div>
