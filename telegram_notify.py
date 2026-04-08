@@ -31,7 +31,11 @@ def _format_listing_text(listing):
         parts.append(f"📍 {listing['location']}")
     if listing.get("details"):
         parts.append(listing["details"])
-    parts.append(f"\n<a href=\"{listing['url']}\">View on imobiliare.ro</a>")
+    source = listing.get("source", "imobiliare")
+    if source == "storia":
+        parts.append(f"\n<a href=\"{listing['url']}\">View on storia.ro</a>")
+    else:
+        parts.append(f"\n<a href=\"{listing['url']}\">View on imobiliare.ro</a>")
     return "\n".join(parts)
 
 

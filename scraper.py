@@ -12,6 +12,7 @@ from playwright_stealth import stealth_sync
 
 import config
 import db
+import storia_scraper
 import telegram_notify
 
 logging.basicConfig(
@@ -351,6 +352,45 @@ def run_normal():
                         telegram_notify.notify_new_listings(new_listings)
                     else:
                         log.info("Scraper complete: no new listings")
+
+                    # --- Storia scraping ---
+                    log.info("Starting storia.ro scrape...")
+                    storia_listings = storia_scraper.scrape_storia_search_results(page, config.MAX_PAGES)
+                    storia_total = len(storia_listings)
+                    total_count += storia_total
+
+                    if storia_listings:
+                        storia_ids = [l["id"] for l in storia_listings]
+                        existing_storia_ids = db.get_existing_ids(storia_ids)
+                        new_storia = [l for l in storia_listings if l["id"] not in existing_storia_ids]
+                        log.info(f"Storia: {storia_total} total, {len(new_storia)} new")
+
+                        if new_storia:
+                            db.insert_listings(new_storia, source="storia")
+                            new_count += len(new_storia)
+
+                            # Duplicate detection
+                            for listing in new_storia:
+                                dup_id = db.find_possible_duplicate(
+                                    price=listing.get("price", ""),
+                                    details=listing.get("details", ""),
+                                    location=listing.get("location", ""),
+                                    exclude_source="storia",
+                                )
+                                if dup_id:
+                                    db.set_possible_duplicate(listing["id"], dup_id)
+                                    log.info(f"  Possible duplicate: {listing['id']} ~ {dup_id}")
+
+                            # Tag source for telegram notification
+                            for l in new_storia:
+                                l["source"] = "storia"
+                            telegram_notify.notify_new_listings(new_storia)
+                            log.info(f"Storia complete: {len(new_storia)} new listings added")
+                        else:
+                            log.info("Storia complete: no new listings")
+
+                        # Add storia IDs to scraped_ids for removal detection
+                        all_ids.extend(storia_ids)
 
                     # Detect removed listings
                     scraped_ids = set(all_ids)
