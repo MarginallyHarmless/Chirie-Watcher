@@ -13,7 +13,7 @@ module.exports = {
       script: "python3",
       args: "scraper.py",
       cwd: __dirname,
-      cron_restart: "0 * * * *",
+      cron_restart: "0 8-23 * * *",
       autorestart: false,
     },
   ],
