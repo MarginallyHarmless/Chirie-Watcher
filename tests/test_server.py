@@ -154,3 +154,22 @@ def test_get_listings_all_excludes_removed(client):
     data = resp.get_json()
     assert data["total"] == 1
     assert data["listings"][0]["id"] == "ax2"
+
+
+def test_get_listings_includes_source(client):
+    """GET /api/listings returns source field for each listing."""
+    db.insert_listings([_make_listing(id="src1")], source="storia")
+    resp = client.get("/api/listings?filter=all")
+    data = resp.get_json()
+    assert data["listings"][0]["source"] == "storia"
+
+
+def test_get_listings_includes_possible_duplicate(client):
+    """GET /api/listings returns possible_duplicate_of field."""
+    db.insert_listings([_make_listing(id="d1")], source="imobiliare")
+    db.insert_listings([_make_listing(id="d2", price="500 EUR/luna", location="Decebal")], source="storia")
+    db.set_possible_duplicate("d2", "d1")
+    resp = client.get("/api/listings?filter=all")
+    data = resp.get_json()
+    storia_listing = [l for l in data["listings"] if l["id"] == "d2"][0]
+    assert storia_listing["possible_duplicate_of"] == "d1"
