@@ -10,6 +10,11 @@ SEARCH_URLS = [
     "https://www.imobiliare.ro/inchirieri-apartamente/bucuresti/calea-calarasilor?rooms=2,3&price=300-800",
 ]
 
+# Storia.ro search URLs — city-level (neighborhood filtering via URL doesn't work on storia)
+STORIA_SEARCH_URLS = [
+    "https://www.storia.ro/ro/rezultate/inchiriere/apartament/bucuresti?priceMin=300&priceMax=800&roomsNumber=%5BTWO%2CTHREE%5D",
+]
+
 # Database
 DB_PATH = os.path.expanduser("~/.local/share/imobiliare-watcher/listings.db")
 
