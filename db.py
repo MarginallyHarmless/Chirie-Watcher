@@ -265,3 +265,36 @@ def relist(ids):
     )
     conn.commit()
     conn.close()
+
+
+def find_possible_duplicate(price, details, location, exclude_source):
+    """Find a listing from another source with matching price and overlapping location.
+
+    Returns the ID of the first match, or None.
+    """
+    if not price or not location:
+        return None
+    conn = _connect()
+    rows = conn.execute(
+        "SELECT id, location FROM listings WHERE source != ? AND price = ? AND removed_at IS NULL",
+        (exclude_source, price),
+    ).fetchall()
+    conn.close()
+
+    location_words = {w.lower() for w in location.split() if len(w) > 2}
+    for row in rows:
+        other_words = {w.lower() for w in row["location"].split() if len(w) > 2}
+        if location_words & other_words:
+            return row["id"]
+    return None
+
+
+def set_possible_duplicate(listing_id, duplicate_of_id):
+    """Set the possible_duplicate_of field for a listing."""
+    conn = _connect()
+    conn.execute(
+        "UPDATE listings SET possible_duplicate_of = ? WHERE id = ?",
+        (duplicate_of_id, listing_id),
+    )
+    conn.commit()
+    conn.close()

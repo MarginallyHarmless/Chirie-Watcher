@@ -341,3 +341,24 @@ def test_insert_listings_default_source():
     db.insert_listings([_make_listing(id="s2")])
     result = db.get_listings(page=1, per_page=50, filter_type="all")
     assert result["listings"][0]["source"] == "imobiliare"
+
+
+def test_find_possible_duplicate_match():
+    """find_possible_duplicate finds a listing with same price and overlapping location."""
+    db.insert_listings([_make_listing(id="imo1", price="500 EUR", location="Decebal", details="2 camere")], source="imobiliare")
+    result = db.find_possible_duplicate(price="500 EUR", details="2 camere", location="Decebal", exclude_source="storia")
+    assert result == "imo1"
+
+
+def test_find_possible_duplicate_no_match():
+    """find_possible_duplicate returns None when no match."""
+    db.insert_listings([_make_listing(id="imo2", price="500 EUR", location="Decebal")], source="imobiliare")
+    result = db.find_possible_duplicate(price="700 EUR", details="", location="Decebal", exclude_source="storia")
+    assert result is None
+
+
+def test_find_possible_duplicate_same_source_excluded():
+    """find_possible_duplicate does not match listings from the same source."""
+    db.insert_listings([_make_listing(id="st1", price="500 EUR", location="Decebal")], source="storia")
+    result = db.find_possible_duplicate(price="500 EUR", details="", location="Decebal", exclude_source="storia")
+    assert result is None
