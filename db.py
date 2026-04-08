@@ -150,7 +150,7 @@ def clear_all():
 def get_last_scrape_time():
     conn = _connect()
     row = conn.execute(
-        "SELECT MAX(first_seen) as last FROM listings"
+        "SELECT MAX(finished_at) as last FROM scrape_logs WHERE status = 'success'"
     ).fetchone()
     conn.close()
     if row and row["last"]:

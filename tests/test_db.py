@@ -90,8 +90,13 @@ def test_get_last_scrape_time_empty():
 
 
 def test_get_last_scrape_time():
-    """get_last_scrape_time returns most recent first_seen."""
-    db.insert_listings([_make_listing(id="t1"), _make_listing(id="t2")])
+    """get_last_scrape_time returns most recent successful scrape time."""
+    db.insert_scrape_log(
+        started_at="2026-04-07T14:00:00+00:00",
+        finished_at="2026-04-07T14:01:00+00:00",
+        mode="normal", new_listings=0, total_found=10,
+        status="success", error_message=None, duration_seconds=60.0,
+    )
     result = db.get_last_scrape_time()
     assert result is not None
 
