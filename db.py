@@ -32,7 +32,9 @@ def init_db():
             photo_urls TEXT DEFAULT '[]',
             first_seen DATETIME,
             is_new INTEGER DEFAULT 1,
-            removed_at DATETIME DEFAULT NULL
+            removed_at DATETIME DEFAULT NULL,
+            source TEXT DEFAULT 'imobiliare',
+            possible_duplicate_of TEXT DEFAULT NULL
         )
     """)
     conn.execute("""
@@ -53,6 +55,16 @@ def init_db():
         conn.execute("ALTER TABLE listings ADD COLUMN removed_at DATETIME DEFAULT NULL")
     except sqlite3.OperationalError:
         pass  # column already exists
+    # Migrate: add source if missing (existing DBs)
+    try:
+        conn.execute("ALTER TABLE listings ADD COLUMN source TEXT DEFAULT 'imobiliare'")
+    except sqlite3.OperationalError:
+        pass
+    # Migrate: add possible_duplicate_of if missing (existing DBs)
+    try:
+        conn.execute("ALTER TABLE listings ADD COLUMN possible_duplicate_of TEXT DEFAULT NULL")
+    except sqlite3.OperationalError:
+        pass
     conn.commit()
     conn.close()
 
@@ -70,7 +82,7 @@ def get_existing_ids(ids):
     return result
 
 
-def insert_listings(listings):
+def insert_listings(listings, source="imobiliare"):
     if not listings:
         return
     conn = _connect()
@@ -78,8 +90,8 @@ def insert_listings(listings):
     for listing in listings:
         conn.execute(
             """INSERT OR IGNORE INTO listings
-               (id, title, price, location, details, url, photo_urls, first_seen, is_new)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)""",
+               (id, title, price, location, details, url, photo_urls, first_seen, is_new, source)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?)""",
             (
                 listing["id"],
                 listing.get("title", ""),
@@ -89,6 +101,7 @@ def insert_listings(listings):
                 listing.get("url", ""),
                 json.dumps(listing.get("photo_urls", [])),
                 now,
+                source,
             ),
         )
     conn.commit()

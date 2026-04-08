@@ -316,3 +316,28 @@ def test_filter_all_excludes_removed():
     result = db.get_listings(page=1, per_page=50, filter_type="all")
     assert result["total"] == 1
     assert result["listings"][0]["id"] == "ae2"
+
+
+def test_init_db_creates_source_column():
+    """init_db should create listings table with source column."""
+    import sqlite3
+    conn = sqlite3.connect(db._get_db_path())
+    cursor = conn.execute("PRAGMA table_info(listings)")
+    columns = {row[1] for row in cursor.fetchall()}
+    conn.close()
+    assert "source" in columns
+    assert "possible_duplicate_of" in columns
+
+
+def test_insert_listings_with_source():
+    """insert_listings stores the source field."""
+    db.insert_listings([_make_listing(id="s1")], source="storia")
+    result = db.get_listings(page=1, per_page=50, filter_type="all")
+    assert result["listings"][0]["source"] == "storia"
+
+
+def test_insert_listings_default_source():
+    """insert_listings defaults source to imobiliare."""
+    db.insert_listings([_make_listing(id="s2")])
+    result = db.get_listings(page=1, per_page=50, filter_type="all")
+    assert result["listings"][0]["source"] == "imobiliare"
