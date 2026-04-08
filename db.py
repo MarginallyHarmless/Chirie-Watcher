@@ -65,6 +65,12 @@ def init_db():
         conn.execute("ALTER TABLE listings ADD COLUMN possible_duplicate_of TEXT DEFAULT NULL")
     except sqlite3.OperationalError:
         pass
+    # Migrate: add per-source counts to scrape_logs if missing
+    for col in ("new_imobiliare", "new_storia"):
+        try:
+            conn.execute(f"ALTER TABLE scrape_logs ADD COLUMN {col} INTEGER DEFAULT 0")
+        except sqlite3.OperationalError:
+            pass
     conn.commit()
     conn.close()
 
@@ -192,13 +198,16 @@ def update_photos(listing_id, photo_urls):
 
 
 def insert_scrape_log(started_at, finished_at, mode, new_listings, total_found,
-                      status, error_message, duration_seconds):
+                      status, error_message, duration_seconds,
+                      new_imobiliare=0, new_storia=0):
     conn = _connect()
     conn.execute(
         """INSERT INTO scrape_logs
-           (started_at, finished_at, mode, new_listings, total_found, status, error_message, duration_seconds)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
-        (started_at, finished_at, mode, new_listings, total_found, status, error_message, duration_seconds),
+           (started_at, finished_at, mode, new_listings, total_found, status, error_message, duration_seconds,
+            new_imobiliare, new_storia)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        (started_at, finished_at, mode, new_listings, total_found, status, error_message, duration_seconds,
+         new_imobiliare, new_storia),
     )
     # Prune to keep only the most recent 200 entries
     conn.execute("""

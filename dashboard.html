@@ -738,7 +738,7 @@
                             ${l.details ? `<span>${esc(l.details)}</span>` : ''}
                         </div>
                         <div class="card-meta">
-                            <span class="card-date">${dateStr}${l.source && l.source !== 'imobiliare' ? ` · <span class="card-source">${esc(l.source)}</span>` : ''}</span>
+                            <span class="card-date">${dateStr} · <span class="card-source">${esc(l.source || 'imobiliare')}</span></span>
                             ${l.is_new && !l.removed_at ? `<button class="btn-ack" onclick="acknowledge('${l.id}')">Mark seen</button>` : ''}
                         </div>
                     </div>

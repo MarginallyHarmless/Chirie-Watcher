@@ -210,7 +210,7 @@
                                 <tr class="${log.status === 'error' ? 'error-row' : ''}">
                                     <td>${new Date(log.started_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</td>
                                     <td>${esc(log.mode)}</td>
-                                    <td>${log.new_listings} new / ${log.total_found} total</td>
+                                    <td>${log.new_listings} new${log.mode === 'normal' && (log.new_imobiliare || log.new_storia) ? ` <span style="opacity:0.6; font-size:0.85em">(${log.new_imobiliare} imob · ${log.new_storia} storia)</span>` : ''} / ${log.total_found} total</td>
                                     <td>${formatDuration(log.duration_seconds)}</td>
                                     <td>${log.status === 'success'
                                         ? '<span class="log-badge ok">OK</span>'

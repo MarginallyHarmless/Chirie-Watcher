@@ -324,6 +324,8 @@ def run_normal():
     db.init_db()
     started_at = datetime.now(timezone.utc)
     new_count = 0
+    new_imobiliare_count = 0
+    new_storia_count = 0
     total_count = 0
     try:
         with sync_playwright() as pw:
@@ -347,8 +349,9 @@ def run_normal():
 
                     if new_listings:
                         db.insert_listings(new_listings)
-                        new_count = len(new_listings)
-                        log.info(f"Scraper complete: {new_count} new listings added")
+                        new_imobiliare_count = len(new_listings)
+                        new_count = new_imobiliare_count
+                        log.info(f"Scraper complete: {new_imobiliare_count} new listings added")
                         telegram_notify.notify_new_listings(new_listings)
                     else:
                         log.info("Scraper complete: no new listings")
@@ -367,7 +370,8 @@ def run_normal():
 
                         if new_storia:
                             db.insert_listings(new_storia, source="storia")
-                            new_count += len(new_storia)
+                            new_storia_count = len(new_storia)
+                            new_count += new_storia_count
 
                             # Duplicate detection
                             for listing in new_storia:
@@ -420,6 +424,8 @@ def run_normal():
             status="success",
             error_message=None,
             duration_seconds=(finished_at - started_at).total_seconds(),
+            new_imobiliare=new_imobiliare_count,
+            new_storia=new_storia_count,
         )
     except Exception as e:
         finished_at = datetime.now(timezone.utc)
@@ -432,6 +438,8 @@ def run_normal():
             status="error",
             error_message=str(e),
             duration_seconds=(finished_at - started_at).total_seconds(),
+            new_imobiliare=new_imobiliare_count,
+            new_storia=new_storia_count,
         )
         raise
 
