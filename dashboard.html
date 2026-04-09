@@ -635,6 +635,38 @@
             gap: 20px;
         }
 
+        /* === NEIGHBORHOOD CHIPS === */
+        .neighborhood-chips {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        .chip {
+            background: var(--bg-card);
+            color: var(--text-secondary);
+            border: 1px solid var(--border);
+            padding: 5px 14px;
+            border-radius: 20px;
+            font-family: inherit;
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-transform: capitalize;
+        }
+
+        .chip:hover {
+            border-color: var(--text-muted);
+            color: var(--text-primary);
+        }
+
+        .chip.active {
+            background: var(--accent-light);
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
         /* === RESPONSIVE === */
         @media (max-width: 768px) {
             .header { padding: 16px 20px; }
@@ -680,6 +712,7 @@
                 <button class="filter-btn active" data-filter="all" onclick="setFilter('all')">Active</button>
                 <button class="filter-btn" data-filter="removed" onclick="setFilter('removed')">Removed</button>
             </div>
+            <div class="neighborhood-chips" id="neighborhoodChips"></div>
             <select class="sort-select" id="sortSelect" onchange="setSort(this.value)">
                 <option value="newest">Newest first</option>
                 <option value="oldest">Oldest first</option>
@@ -714,6 +747,7 @@
         let currentPage = 1;
         let currentFilter = 'all';
         let currentSort = 'newest';
+        let activeNeighborhood = null;
         const perPage = 50;
         let totalPages = 1;
         let refreshTimer = null;
@@ -721,6 +755,30 @@
         // Lightbox state
         let lbPhotos = [];
         let lbIndex = 0;
+
+        async function loadNeighborhoodChips() {
+            try {
+                const resp = await fetch('/api/settings');
+                const data = await resp.json();
+                const container = document.getElementById('neighborhoodChips');
+                container.innerHTML = (data.neighborhoods || []).map(n =>
+                    `<button class="chip" onclick="toggleNeighborhood(this, '${esc(n)}')">${esc(n)}</button>`
+                ).join('');
+            } catch (e) {}
+        }
+
+        function toggleNeighborhood(btn, name) {
+            if (activeNeighborhood === name) {
+                activeNeighborhood = null;
+                btn.classList.remove('active');
+            } else {
+                document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+                activeNeighborhood = name;
+                btn.classList.add('active');
+            }
+            currentPage = 1;
+            fetchListings();
+        }
 
         function setSort(sort) {
             currentSort = sort;
@@ -797,7 +855,16 @@
             const column = document.getElementById('listingsColumn');
             const timelineEl = document.getElementById('timeline');
 
-            if (!data.listings.length) {
+            let listings = data.listings;
+            if (activeNeighborhood) {
+                const kw = activeNeighborhood.toLowerCase();
+                listings = listings.filter(l => {
+                    const text = ((l.location || '') + ' ' + (l.title || '')).toLowerCase();
+                    return text.includes(kw);
+                });
+            }
+
+            if (!listings.length) {
                 column.innerHTML = `
                     <div class="empty-state">
                         <div class="empty-state-icon">&#9675;</div>
@@ -807,7 +874,7 @@
                 return;
             }
 
-            const groups = groupByDay(data.listings);
+            const groups = groupByDay(listings);
             let html = '';
             let timelineHtml = '';
 
@@ -1018,6 +1085,7 @@
         }
 
         // Initial load
+        loadNeighborhoodChips();
         fetchListings();
 
         // Auto-refresh every 60 seconds
