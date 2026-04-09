@@ -2,6 +2,7 @@ import os
 import json
 import tempfile
 import pytest
+from unittest.mock import patch
 
 _tmp_dir = tempfile.mkdtemp()
 os.environ["IMOBILIARE_DB_PATH"] = os.path.join(_tmp_dir, "test_server.db")
@@ -173,3 +174,116 @@ def test_get_listings_includes_possible_duplicate(client):
     data = resp.get_json()
     storia_listing = [l for l in data["listings"] if l["id"] == "d2"][0]
     assert storia_listing["possible_duplicate_of"] == "d1"
+
+
+def test_get_settings_returns_defaults(client):
+    """GET /api/settings returns default settings."""
+    resp = client.get("/api/settings")
+    data = resp.get_json()
+    assert resp.status_code == 200
+    assert data["neighborhoods"] == ["decebal", "alba iulia", "unirii", "calea calarasilor", "calarasilor"]
+    assert data["price_min"] == 300
+    assert data["price_max"] == 800
+    assert data["rooms"] == [2, 3]
+
+
+def test_put_settings_valid(client):
+    """PUT /api/settings with valid data updates settings."""
+    resp = client.put("/api/settings", json={
+        "neighborhoods": ["militari"],
+        "price_min": 200,
+        "price_max": 600,
+        "rooms": [1, 2],
+        "scraper_start_hour": 9,
+        "scraper_end_hour": 22,
+    })
+    assert resp.status_code == 200
+    resp2 = client.get("/api/settings")
+    data = resp2.get_json()
+    assert data["neighborhoods"] == ["militari"]
+    assert data["price_min"] == 200
+
+
+def test_put_settings_empty_neighborhoods(client):
+    """PUT /api/settings rejects empty neighborhoods."""
+    resp = client.put("/api/settings", json={
+        "neighborhoods": [],
+        "price_min": 300,
+        "price_max": 800,
+        "rooms": [2],
+        "scraper_start_hour": 8,
+        "scraper_end_hour": 23,
+    })
+    assert resp.status_code == 400
+
+
+def test_put_settings_invalid_price_range(client):
+    """PUT /api/settings rejects min >= max price."""
+    resp = client.put("/api/settings", json={
+        "neighborhoods": ["decebal"],
+        "price_min": 800,
+        "price_max": 300,
+        "rooms": [2],
+        "scraper_start_hour": 8,
+        "scraper_end_hour": 23,
+    })
+    assert resp.status_code == 400
+
+
+def test_put_settings_invalid_rooms(client):
+    """PUT /api/settings rejects rooms outside 1-5."""
+    resp = client.put("/api/settings", json={
+        "neighborhoods": ["decebal"],
+        "price_min": 300,
+        "price_max": 800,
+        "rooms": [0, 6],
+        "scraper_start_hour": 8,
+        "scraper_end_hour": 23,
+    })
+    assert resp.status_code == 400
+
+
+def test_put_settings_invalid_hours(client):
+    """PUT /api/settings rejects start >= end hour."""
+    resp = client.put("/api/settings", json={
+        "neighborhoods": ["decebal"],
+        "price_min": 300,
+        "price_max": 800,
+        "rooms": [2],
+        "scraper_start_hour": 23,
+        "scraper_end_hour": 8,
+    })
+    assert resp.status_code == 400
+
+
+def test_post_scrape_starts_subprocess(client):
+    """POST /api/scrape starts a scraper subprocess."""
+    with patch("server.subprocess.Popen") as mock_popen:
+        resp = client.post("/api/scrape")
+        assert resp.status_code == 200
+        assert resp.get_json()["status"] == "started"
+        mock_popen.assert_called_once()
+
+
+def test_post_scrape_conflict_when_running(client):
+    """POST /api/scrape returns 409 when a scrape is already running."""
+    db.start_scrape_log(mode="normal")
+    resp = client.post("/api/scrape")
+    assert resp.status_code == 409
+    assert "already running" in resp.get_json()["error"]
+
+
+def test_get_scrape_status_not_running(client):
+    """GET /api/scrape/status returns running=false when idle."""
+    resp = client.get("/api/scrape/status")
+    data = resp.get_json()
+    assert resp.status_code == 200
+    assert data["running"] is False
+
+
+def test_get_scrape_status_running(client):
+    """GET /api/scrape/status returns running=true during a scrape."""
+    db.start_scrape_log(mode="normal")
+    resp = client.get("/api/scrape/status")
+    data = resp.get_json()
+    assert data["running"] is True
