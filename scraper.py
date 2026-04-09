@@ -499,7 +499,7 @@ def run_seed():
 def run_backfill():
     """Backfill mode: fetch photos for listings that have none."""
     db.init_db()
-    started_at = datetime.now(timezone.utc)
+    log_id = db.start_scrape_log(mode="backfill")
     total_count = 0
     try:
         listings = db.get_listings_without_photos(limit=config.BACKFILL_BATCH_SIZE)
@@ -523,28 +523,14 @@ def run_backfill():
 
             log.info("Backfill complete")
 
-        finished_at = datetime.now(timezone.utc)
-        db.insert_scrape_log(
-            started_at=started_at.isoformat(),
-            finished_at=finished_at.isoformat(),
-            mode="backfill",
-            new_listings=0,
-            total_found=total_count,
-            status="success",
-            error_message=None,
-            duration_seconds=(finished_at - started_at).total_seconds(),
+        db.finish_scrape_log(
+            log_id=log_id, status="success", new_listings=0,
+            total_found=total_count, error_message=None,
         )
     except Exception as e:
-        finished_at = datetime.now(timezone.utc)
-        db.insert_scrape_log(
-            started_at=started_at.isoformat(),
-            finished_at=finished_at.isoformat(),
-            mode="backfill",
-            new_listings=0,
-            total_found=total_count,
-            status="error",
-            error_message=str(e),
-            duration_seconds=(finished_at - started_at).total_seconds(),
+        db.finish_scrape_log(
+            log_id=log_id, status="error", new_listings=0,
+            total_found=total_count, error_message=str(e),
         )
         raise
 
