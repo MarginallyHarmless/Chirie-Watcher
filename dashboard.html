@@ -706,7 +706,7 @@
 
     <script>
         let currentPage = 1;
-        let currentFilter = 'new';
+        let currentFilter = 'all';
         let currentSort = 'newest';
         const perPage = 50;
         let totalPages = 1;
@@ -744,61 +744,166 @@
             return `Listed ${diffDays}d`;
         }
 
+        function formatDayLabel(dateStr) {
+            const date = new Date(dateStr + 'T00:00:00');
+            const today = new Date();
+            today.setHours(0,0,0,0);
+            const yesterday = new Date(today);
+            yesterday.setDate(yesterday.getDate() - 1);
+            const d = new Date(date);
+            d.setHours(0,0,0,0);
+            if (d.getTime() === today.getTime()) {
+                return 'Today, ' + date.toLocaleDateString('en-GB', { day: 'numeric', month: 'long' });
+            }
+            if (d.getTime() === yesterday.getTime()) {
+                return 'Yesterday, ' + date.toLocaleDateString('en-GB', { day: 'numeric', month: 'long' });
+            }
+            return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'long' });
+        }
+
+        function shortDayLabel(dateStr) {
+            const date = new Date(dateStr + 'T00:00:00');
+            const today = new Date();
+            today.setHours(0,0,0,0);
+            const yesterday = new Date(today);
+            yesterday.setDate(yesterday.getDate() - 1);
+            const d = new Date(date);
+            d.setHours(0,0,0,0);
+            if (d.getTime() === today.getTime()) return 'Today';
+            if (d.getTime() === yesterday.getTime()) return 'Yest.';
+            return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+        }
+
+        function groupByDay(listings) {
+            const groups = new Map();
+            for (const l of listings) {
+                const d = new Date(l.first_seen);
+                const key = d.getFullYear() + '-' +
+                    String(d.getMonth() + 1).padStart(2, '0') + '-' +
+                    String(d.getDate()).padStart(2, '0');
+                if (!groups.has(key)) groups.set(key, []);
+                groups.get(key).push(l);
+            }
+            return groups;
+        }
+
         function renderListings(data) {
-            const container = document.getElementById('listings');
+            const column = document.getElementById('listingsColumn');
+            const timelineEl = document.getElementById('timeline');
+
             if (!data.listings.length) {
-                container.innerHTML = `
+                column.innerHTML = `
                     <div class="empty-state">
                         <div class="empty-state-icon">&#9675;</div>
                         <div>No listings found</div>
                     </div>`;
+                timelineEl.innerHTML = '';
                 return;
             }
-            container.innerHTML = data.listings.map((l, idx) => {
-                const hasPhotos = l.photo_urls && l.photo_urls.length;
-                const photoCount = hasPhotos ? l.photo_urls.length : 0;
-                const maxVisible = 6;
-                const remaining = photoCount - maxVisible;
-                const dateStr = new Date(l.first_seen).toLocaleDateString('en-GB', {
-                    day: 'numeric', month: 'short', year: 'numeric'
-                });
 
-                let gridClass = 'photos-1';
-                if (photoCount === 2) gridClass = 'photos-2';
-                else if (photoCount === 3) gridClass = 'photos-3';
-                else if (photoCount === 4) gridClass = 'photos-4';
-                else if (photoCount === 5) gridClass = 'photos-5';
-                else if (photoCount >= 6) gridClass = 'photos-many';
+            const groups = groupByDay(data.listings);
+            let html = '';
+            let timelineHtml = '';
 
-                const visiblePhotos = hasPhotos ? l.photo_urls.slice(0, maxVisible) : [];
+            for (const [dateKey, listings] of groups) {
+                html += `<div class="day-group" id="day-${dateKey}">`;
+                html += `<div class="day-header">${formatDayLabel(dateKey)}</div>`;
+                html += `<div class="day-grid">`;
 
-                return `
-                <div class="card ${l.removed_at ? 'removed' : (l.is_new ? '' : 'seen')}" id="card-${l.id}" style="animation-delay: ${Math.min(idx * 40, 600)}ms">
-                    <div class="card-photos ${hasPhotos ? gridClass : ''}" data-photos='${hasPhotos ? JSON.stringify(l.photo_urls) : "[]"}'>
-                        ${l.is_new ? '<span class="badge-new">New</span>' : ''}
-                        ${l.removed_at ? `<span class="badge-removed">${durationLabel(l.first_seen, l.removed_at)}</span>` : ''}
-                        ${!l.is_new && l.possible_duplicate_of ? '<span class="badge-duplicate">Possible duplicate</span>' : ''}
-                        ${hasPhotos ? visiblePhotos.map((url, i) => {
-                            const isLast = i === maxVisible - 1 && remaining > 0;
-                            return `<${isLast ? 'div class="photo-more"' : 'div'} ${isLast ? `data-remaining="+${remaining}"` : ''}>
-                                <img src="${esc(url)}" alt="photo" loading="lazy" onclick="openLightbox(JSON.parse(this.closest('.card-photos').dataset.photos), ${i})">
-                            </div>`;
-                        }).join('') : '<div class="no-photo">No photos</div>'}
+                for (const l of listings) {
+                    html += renderCard(l);
+                }
+
+                html += `</div></div>`;
+
+                timelineHtml += `
+                    <div class="timeline-entry" data-day="${dateKey}" onclick="scrollToDay('${dateKey}')">
+                        <div class="timeline-dot"></div>
+                        <span>${shortDayLabel(dateKey)}</span>
+                        <div class="timeline-line"></div>
+                    </div>`;
+            }
+
+            column.innerHTML = html;
+            timelineEl.innerHTML = timelineHtml;
+            setupDayObserver();
+        }
+
+        function renderCard(l) {
+            const hasPhotos = l.photo_urls && l.photo_urls.length;
+            const photoCount = hasPhotos ? l.photo_urls.length : 0;
+            const maxVisible = 6;
+            const remaining = photoCount - maxVisible;
+            const dateStr = new Date(l.first_seen).toLocaleDateString('en-GB', {
+                day: 'numeric', month: 'short', year: 'numeric'
+            });
+
+            let gridClass = 'photos-1';
+            if (photoCount === 2) gridClass = 'photos-2';
+            else if (photoCount === 3) gridClass = 'photos-3';
+            else if (photoCount === 4) gridClass = 'photos-4';
+            else if (photoCount === 5) gridClass = 'photos-5';
+            else if (photoCount >= 6) gridClass = 'photos-many';
+
+            const visiblePhotos = hasPhotos ? l.photo_urls.slice(0, maxVisible) : [];
+
+            return `
+            <div class="card ${l.removed_at ? 'removed' : ''}" id="card-${l.id}">
+                <div class="card-photos ${hasPhotos ? gridClass : ''}" data-photos='${hasPhotos ? JSON.stringify(l.photo_urls) : "[]"}'>
+                    ${l.removed_at ? `<span class="badge-removed">${durationLabel(l.first_seen, l.removed_at)}</span>` : ''}
+                    ${l.possible_duplicate_of ? '<span class="badge-duplicate">Possible duplicate</span>' : ''}
+                    ${hasPhotos ? visiblePhotos.map((url, i) => {
+                        const isLast = i === maxVisible - 1 && remaining > 0;
+                        return `<${isLast ? 'div class="photo-more"' : 'div'} ${isLast ? `data-remaining="+${remaining}"` : ''}>
+                            <img src="${esc(url)}" alt="photo" loading="lazy" onclick="openLightbox(JSON.parse(this.closest('.card-photos').dataset.photos), ${i})">
+                        </div>`;
+                    }).join('') : '<div class="no-photo">No photos</div>'}
+                </div>
+                <div class="card-body">
+                    <div class="card-price">${esc(l.price || 'No price')}</div>
+                    <a class="card-title" href="${esc(l.url)}" target="_blank">${esc(l.title || 'Untitled')}</a>
+                    <div class="card-info">
+                        ${l.location ? `<span>${esc(l.location)}</span>` : ''}
+                        ${l.details ? `<span>${esc(l.details)}</span>` : ''}
                     </div>
-                    <div class="card-body">
-                        <div class="card-price">${esc(l.price || 'No price')}</div>
-                        <a class="card-title" href="${esc(l.url)}" target="_blank">${esc(l.title || 'Untitled')}</a>
-                        <div class="card-info">
-                            ${l.location ? `<span>${esc(l.location)}</span>` : ''}
-                            ${l.details ? `<span>${esc(l.details)}</span>` : ''}
-                        </div>
-                        <div class="card-meta">
-                            <span class="card-date">${dateStr} · <span class="card-source">${esc(l.source || 'imobiliare')}</span></span>
-                            ${l.is_new && !l.removed_at ? `<button class="btn-ack" onclick="acknowledge('${l.id}')">Mark seen</button>` : ''}
-                        </div>
+                    <div class="card-meta">
+                        <span class="card-date">${dateStr} · <span class="card-source">${esc(l.source || 'imobiliare')}</span></span>
                     </div>
-                </div>`;
-            }).join('');
+                </div>
+            </div>`;
+        }
+
+        function scrollToDay(dateKey) {
+            const el = document.getElementById('day-' + dateKey);
+            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        let dayObserver = null;
+        function setupDayObserver() {
+            if (dayObserver) dayObserver.disconnect();
+            const headers = document.querySelectorAll('.day-group');
+            if (!headers.length) return;
+
+            dayObserver = new IntersectionObserver((entries) => {
+                let topDay = null;
+                let topY = Infinity;
+                for (const entry of entries) {
+                    if (entry.isIntersecting) {
+                        const y = entry.boundingClientRect.top;
+                        if (y < topY) {
+                            topY = y;
+                            topDay = entry.target.id.replace('day-', '');
+                        }
+                    }
+                }
+                if (topDay) {
+                    document.querySelectorAll('.timeline-entry').forEach(te => {
+                        te.classList.toggle('active', te.dataset.day === topDay);
+                    });
+                }
+            }, { rootMargin: '-80px 0px -60% 0px' });
+
+            headers.forEach(h => dayObserver.observe(h));
         }
 
         // Lightbox
@@ -898,22 +1003,6 @@
 
         function nextPage() {
             if (currentPage < totalPages) { currentPage++; fetchListings(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
-        }
-
-        async function acknowledge(id) {
-            try {
-                await fetch(`/api/listings/${id}/acknowledge`, { method: 'POST' });
-                const card = document.getElementById(`card-${id}`);
-                if (card) {
-                    card.classList.add('seen');
-                    const badge = card.querySelector('.badge-new');
-                    if (badge) badge.remove();
-                    const ackBtn = card.querySelector('.btn-ack');
-                    if (ackBtn) ackBtn.remove();
-                }
-            } catch (e) {
-                console.error('Acknowledge failed:', e);
-            }
         }
 
         function esc(str) {
