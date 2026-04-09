@@ -362,3 +362,49 @@ def test_find_possible_duplicate_same_source_excluded():
     db.insert_listings([_make_listing(id="st1", price="500 EUR", location="Decebal")], source="storia")
     result = db.find_possible_duplicate(price="500 EUR", details="", location="Decebal", exclude_source="storia")
     assert result is None
+
+
+def test_init_db_creates_settings_table():
+    """init_db should create the settings table."""
+    import sqlite3
+    conn = sqlite3.connect(db._get_db_path())
+    cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='settings'")
+    assert cursor.fetchone() is not None
+    conn.close()
+
+
+def test_get_settings_returns_defaults():
+    """get_settings returns default values on fresh DB."""
+    settings = db.get_settings()
+    assert settings["neighborhoods"] == ["decebal", "alba iulia", "unirii", "calea calarasilor", "calarasilor"]
+    assert settings["price_min"] == 300
+    assert settings["price_max"] == 800
+    assert settings["rooms"] == [2, 3]
+    assert settings["scraper_start_hour"] == 8
+    assert settings["scraper_end_hour"] == 23
+
+
+def test_update_settings_writes_and_reads():
+    """update_settings persists changes that get_settings returns."""
+    db.update_settings({
+        "neighborhoods": ["militari", "drumul taberei"],
+        "price_min": 200,
+        "price_max": 600,
+        "rooms": [1, 2],
+        "scraper_start_hour": 9,
+        "scraper_end_hour": 22,
+    })
+    settings = db.get_settings()
+    assert settings["neighborhoods"] == ["militari", "drumul taberei"]
+    assert settings["price_min"] == 200
+    assert settings["price_max"] == 600
+    assert settings["rooms"] == [1, 2]
+    assert settings["scraper_start_hour"] == 9
+    assert settings["scraper_end_hour"] == 22
+
+
+def test_get_settings_called_twice_returns_same():
+    """get_settings is idempotent — no duplicate row issues."""
+    s1 = db.get_settings()
+    s2 = db.get_settings()
+    assert s1 == s2

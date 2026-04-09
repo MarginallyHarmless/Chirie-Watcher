@@ -71,6 +71,17 @@ def init_db():
             conn.execute(f"ALTER TABLE scrape_logs ADD COLUMN {col} INTEGER DEFAULT 0")
         except sqlite3.OperationalError:
             pass
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS settings (
+            id INTEGER PRIMARY KEY CHECK (id = 1),
+            neighborhoods TEXT NOT NULL,
+            price_min INTEGER NOT NULL,
+            price_max INTEGER NOT NULL,
+            rooms TEXT NOT NULL,
+            scraper_start_hour INTEGER NOT NULL,
+            scraper_end_hour INTEGER NOT NULL
+        )
+    """)
     conn.commit()
     conn.close()
 
@@ -304,6 +315,60 @@ def set_possible_duplicate(listing_id, duplicate_of_id):
     conn.execute(
         "UPDATE listings SET possible_duplicate_of = ? WHERE id = ?",
         (duplicate_of_id, listing_id),
+    )
+    conn.commit()
+    conn.close()
+
+
+def get_settings():
+    """Return current settings as a dict, creating defaults if needed."""
+    conn = _connect()
+    row = conn.execute("SELECT * FROM settings WHERE id = 1").fetchone()
+    if not row:
+        conn.execute(
+            """INSERT INTO settings (id, neighborhoods, price_min, price_max, rooms,
+               scraper_start_hour, scraper_end_hour)
+               VALUES (1, ?, ?, ?, ?, ?, ?)""",
+            (
+                json.dumps(config.STORIA_NEIGHBORHOODS),
+                300,
+                800,
+                json.dumps([2, 3]),
+                config.SCRAPER_START_HOUR,
+                config.SCRAPER_END_HOUR,
+            ),
+        )
+        conn.commit()
+        row = conn.execute("SELECT * FROM settings WHERE id = 1").fetchone()
+    conn.close()
+    return {
+        "neighborhoods": json.loads(row["neighborhoods"]),
+        "price_min": row["price_min"],
+        "price_max": row["price_max"],
+        "rooms": json.loads(row["rooms"]),
+        "scraper_start_hour": row["scraper_start_hour"],
+        "scraper_end_hour": row["scraper_end_hour"],
+    }
+
+
+def update_settings(data):
+    """Write all settings fields. Caller is responsible for validation."""
+    conn = _connect()
+    # Ensure the row exists
+    get_settings()
+    conn.execute(
+        """UPDATE settings SET
+           neighborhoods = ?, price_min = ?, price_max = ?,
+           rooms = ?, scraper_start_hour = ?, scraper_end_hour = ?
+           WHERE id = 1""",
+        (
+            json.dumps(data["neighborhoods"]),
+            data["price_min"],
+            data["price_max"],
+            json.dumps(data["rooms"]),
+            data["scraper_start_hour"],
+            data["scraper_end_hour"],
+        ),
     )
     conn.commit()
     conn.close()
