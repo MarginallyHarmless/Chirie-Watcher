@@ -351,6 +351,67 @@ def get_settings():
     }
 
 
+def start_scrape_log(mode):
+    """Insert a 'running' scrape log entry and return its ID."""
+    conn = _connect()
+    now = datetime.now(timezone.utc).isoformat()
+    cursor = conn.execute(
+        """INSERT INTO scrape_logs
+           (started_at, mode, status, new_listings, total_found,
+            new_imobiliare, new_storia)
+           VALUES (?, ?, 'running', 0, 0, 0, 0)""",
+        (now, mode),
+    )
+    log_id = cursor.lastrowid
+    conn.commit()
+    conn.close()
+    return log_id
+
+
+def finish_scrape_log(log_id, status, new_listings, total_found,
+                      error_message, new_imobiliare=0, new_storia=0):
+    """Update a running scrape log entry with final results."""
+    conn = _connect()
+    now = datetime.now(timezone.utc).isoformat()
+    row = conn.execute("SELECT started_at FROM scrape_logs WHERE id = ?", (log_id,)).fetchone()
+    duration = None
+    if row and row["started_at"]:
+        started = datetime.fromisoformat(row["started_at"])
+        if started.tzinfo is None:
+            started = started.replace(tzinfo=timezone.utc)
+        duration = (datetime.now(timezone.utc) - started).total_seconds()
+    conn.execute(
+        """UPDATE scrape_logs SET
+           finished_at = ?, status = ?, new_listings = ?, total_found = ?,
+           error_message = ?, duration_seconds = ?,
+           new_imobiliare = ?, new_storia = ?
+           WHERE id = ?""",
+        (now, status, new_listings, total_found, error_message, duration,
+         new_imobiliare, new_storia, log_id),
+    )
+    # Prune to keep only the most recent 200 entries
+    conn.execute("""
+        DELETE FROM scrape_logs WHERE id NOT IN (
+            SELECT id FROM scrape_logs ORDER BY started_at DESC LIMIT 200
+        )
+    """)
+    conn.commit()
+    conn.close()
+
+
+def is_scrape_running():
+    """Check if a scrape is currently in progress."""
+    conn = _connect()
+    row = conn.execute(
+        """SELECT id FROM scrape_logs
+           WHERE status = 'running'
+           AND started_at > datetime('now', '-30 minutes')
+           LIMIT 1"""
+    ).fetchone()
+    conn.close()
+    return row is not None
+
+
 def update_settings(data):
     """Write all settings fields. Caller is responsible for validation."""
     conn = _connect()

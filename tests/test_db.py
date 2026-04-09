@@ -408,3 +408,53 @@ def test_get_settings_called_twice_returns_same():
     s1 = db.get_settings()
     s2 = db.get_settings()
     assert s1 == s2
+
+
+def test_start_scrape_log_returns_id():
+    """start_scrape_log creates a running entry and returns its ID."""
+    log_id = db.start_scrape_log(mode="normal")
+    assert isinstance(log_id, int)
+    logs = db.get_scrape_logs()
+    assert len(logs) == 1
+    assert logs[0]["status"] == "running"
+    assert logs[0]["finished_at"] is None
+
+
+def test_finish_scrape_log_updates_entry():
+    """finish_scrape_log sets final fields on a running entry."""
+    log_id = db.start_scrape_log(mode="normal")
+    db.finish_scrape_log(
+        log_id=log_id,
+        status="success",
+        new_listings=3,
+        total_found=50,
+        error_message=None,
+        new_imobiliare=2,
+        new_storia=1,
+    )
+    logs = db.get_scrape_logs()
+    assert logs[0]["status"] == "success"
+    assert logs[0]["new_listings"] == 3
+    assert logs[0]["total_found"] == 50
+    assert logs[0]["finished_at"] is not None
+    assert logs[0]["duration_seconds"] is not None
+
+
+def test_is_scrape_running_true():
+    """is_scrape_running returns True when a scrape is in progress."""
+    db.start_scrape_log(mode="normal")
+    assert db.is_scrape_running() is True
+
+
+def test_is_scrape_running_false_after_finish():
+    """is_scrape_running returns False after scrape completes."""
+    log_id = db.start_scrape_log(mode="normal")
+    db.finish_scrape_log(log_id=log_id, status="success", new_listings=0,
+                         total_found=0, error_message=None,
+                         new_imobiliare=0, new_storia=0)
+    assert db.is_scrape_running() is False
+
+
+def test_is_scrape_running_false_when_empty():
+    """is_scrape_running returns False with no logs."""
+    assert db.is_scrape_running() is False
