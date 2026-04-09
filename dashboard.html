@@ -636,7 +636,8 @@
         }
 
         /* === NEIGHBORHOOD CHIPS === */
-        .neighborhood-chips {
+        .chips-bar {
+            padding: 0 32px 12px;
             display: flex;
             gap: 6px;
             flex-wrap: wrap;
@@ -671,6 +672,7 @@
         @media (max-width: 768px) {
             .header { padding: 16px 20px; }
             .controls { padding: 12px 20px; }
+            .chips-bar { padding: 0 20px 12px; }
             .content-area { padding: 8px 16px 40px; }
             .timeline { display: none; }
             .day-grid { grid-template-columns: 1fr; }
@@ -712,7 +714,6 @@
                 <button class="filter-btn active" data-filter="all" onclick="setFilter('all')">Active</button>
                 <button class="filter-btn" data-filter="removed" onclick="setFilter('removed')">Removed</button>
             </div>
-            <div class="neighborhood-chips" id="neighborhoodChips"></div>
             <select class="sort-select" id="sortSelect" onchange="setSort(this.value)">
                 <option value="newest">Newest first</option>
                 <option value="oldest">Oldest first</option>
@@ -729,6 +730,7 @@
             </div>
         </div>
     </div>
+    <div class="chips-bar" id="neighborhoodChips"></div>
 
     <div class="content-area">
         <div class="timeline" id="timeline"></div>
