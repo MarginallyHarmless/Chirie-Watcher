@@ -110,43 +110,54 @@ def test_get_total_pages_missing():
 def test_matches_neighborhood_hit():
     """_matches_neighborhood returns True when location contains a configured neighborhood."""
     from storia_scraper import _matches_neighborhood
-    assert _matches_neighborhood({"location": "Decebal, Sectorul 3, Bucuresti"}) is True
-    assert _matches_neighborhood({"location": "Alba Iulia, Sectorul 2"}) is True
-    assert _matches_neighborhood({"location": "Calea Calarasilor, Sectorul 3"}) is True
+    neighborhoods = ["decebal", "alba iulia", "calea calarasilor", "calarasilor"]
+    assert _matches_neighborhood({"location": "Decebal, Sectorul 3, Bucuresti"}, neighborhoods) is True
+    assert _matches_neighborhood({"location": "Alba Iulia, Sectorul 2"}, neighborhoods) is True
+    assert _matches_neighborhood({"location": "Calea Calarasilor, Sectorul 3"}, neighborhoods) is True
 
 
 def test_matches_neighborhood_via_title():
     """_matches_neighborhood matches against title text."""
     from storia_scraper import _matches_neighborhood
+    neighborhoods = ["unirii"]
     assert _matches_neighborhood({
         "location": "Bucuresti, Sectorul 3, Centrul Civic",
         "title": "2 Camere | Splaiul Unirii | Decomandat",
-    }) is True
+    }, neighborhoods) is True
 
 
 def test_matches_neighborhood_via_description():
     """_matches_neighborhood matches against short_description text."""
     from storia_scraper import _matches_neighborhood
+    neighborhoods = ["alba iulia"]
     assert _matches_neighborhood({
         "location": "Bucuresti, Sectorul 4, Vacaresti",
         "title": "Apartament modern 2 camere",
         "short_description": "Situat langa Piata Alba Iulia, zona linistita",
-    }) is True
+    }, neighborhoods) is True
 
 
 def test_matches_neighborhood_miss():
     """_matches_neighborhood returns False when no field matches."""
     from storia_scraper import _matches_neighborhood
+    neighborhoods = ["decebal", "alba iulia", "unirii"]
     assert _matches_neighborhood({
         "location": "Militari, Sectorul 6, Bucuresti",
         "title": "Apartament 2 camere Militari",
         "short_description": "Bloc nou in Militari Residence",
-    }) is False
-    assert _matches_neighborhood({"location": "Drumul Taberei"}) is False
+    }, neighborhoods) is False
+    assert _matches_neighborhood({"location": "Drumul Taberei"}, neighborhoods) is False
 
 
 def test_matches_neighborhood_empty_location():
     """_matches_neighborhood returns False for empty fields."""
     from storia_scraper import _matches_neighborhood
-    assert _matches_neighborhood({"location": ""}) is False
-    assert _matches_neighborhood({"location": "", "title": "", "short_description": ""}) is False
+    neighborhoods = ["decebal"]
+    assert _matches_neighborhood({"location": ""}, neighborhoods) is False
+    assert _matches_neighborhood({"location": "", "title": "", "short_description": ""}, neighborhoods) is False
+
+
+def test_matches_neighborhood_empty_list():
+    """_matches_neighborhood returns True when neighborhoods list is empty (no filter)."""
+    from storia_scraper import _matches_neighborhood
+    assert _matches_neighborhood({"location": "Anywhere"}, []) is True

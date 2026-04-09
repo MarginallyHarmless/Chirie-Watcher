@@ -129,14 +129,13 @@ def _get_total_pages(data):
         return 1
 
 
-def _matches_neighborhood(listing):
+def _matches_neighborhood(listing, neighborhoods):
     """Check if a listing matches any configured neighborhood.
 
     Searches location, title, and short_description since storia.ro
     often puts specific neighborhood names in the title or description
     rather than the structured location field.
     """
-    neighborhoods = getattr(config, "STORIA_NEIGHBORHOODS", [])
     if not neighborhoods:
         return True
     text = " ".join([
@@ -147,7 +146,7 @@ def _matches_neighborhood(listing):
     return any(n in text for n in neighborhoods)
 
 
-def scrape_storia_search_results(page, max_pages):
+def scrape_storia_search_results(page, search_urls, neighborhoods, max_pages):
     """Scrape storia.ro search results using __NEXT_DATA__ JSON.
 
     Uses a single city-level URL (neighborhood filtering doesn't work on storia.ro).
@@ -156,7 +155,7 @@ def scrape_storia_search_results(page, max_pages):
     all_listings = []
     seen_ids = set()
 
-    for search_url in config.STORIA_SEARCH_URLS:
+    for search_url in search_urls:
         log.info(f"Scraping storia: {search_url[:80]}...")
         page_num = 0
         total_pages = None
@@ -184,7 +183,7 @@ def scrape_storia_search_results(page, max_pages):
 
             listings = _extract_listings_from_json(data)
             # Filter by neighborhood
-            listings = [l for l in listings if _matches_neighborhood(l)]
+            listings = [l for l in listings if _matches_neighborhood(l, neighborhoods)]
             new_listings = [l for l in listings if l["id"] not in seen_ids]
             for l in new_listings:
                 seen_ids.add(l["id"])
