@@ -14,6 +14,7 @@ import config
 import db
 import storia_scraper
 import telegram_notify
+import url_builder
 
 logging.basicConfig(
     level=logging.INFO,
@@ -286,16 +287,16 @@ def _fetch_photos(page, url, max_photos):
         return []
 
 
-def scrape_search_results(page, max_pages):
+def scrape_search_results(page, search_urls, max_pages):
     """Scrape all pages of search results across all configured URLs.
 
-    Iterates over config.SEARCH_URLS, paginates each one, and deduplicates
+    Iterates over search_urls, paginates each one, and deduplicates
     by listing ID.
     """
     all_listings = []
     seen_ids = set()
 
-    for search_url in config.SEARCH_URLS:
+    for search_url in search_urls:
         log.info(f"Scraping: {search_url[:80]}...")
         current_url = search_url
         page_num = 0
@@ -332,7 +333,12 @@ def scrape_search_results(page, max_pages):
 def run_normal():
     """Normal mode: scrape search results, fetch photos for new listings only."""
     db.init_db()
-    started_at = datetime.now(timezone.utc)
+    settings = db.get_settings()
+    search_urls = url_builder.build_imobiliare_urls(settings)
+    storia_urls = url_builder.build_storia_urls(settings)
+    neighborhoods = settings["neighborhoods"]
+
+    log_id = db.start_scrape_log(mode="normal")
     new_count = 0
     new_imobiliare_count = 0
     new_storia_count = 0
@@ -341,7 +347,7 @@ def run_normal():
         with sync_playwright() as pw:
             browser, page = _launch_browser(pw)
             try:
-                all_listings = scrape_search_results(page, config.MAX_PAGES)
+                all_listings = scrape_search_results(page, search_urls, config.MAX_PAGES)
                 total_count = len(all_listings)
                 if not all_listings:
                     log.info("No listings found on search page.")
@@ -368,7 +374,8 @@ def run_normal():
 
                     # --- Storia scraping ---
                     log.info("Starting storia.ro scrape...")
-                    storia_listings = storia_scraper.scrape_storia_search_results(page, config.MAX_PAGES)
+                    storia_listings = storia_scraper.scrape_storia_search_results(
+                        page, storia_urls, neighborhoods, config.MAX_PAGES)
                     storia_total = len(storia_listings)
                     total_count += storia_total
 
@@ -414,8 +421,7 @@ def run_normal():
                         db.mark_removed(disappeared_ids)
                         log.info(f"Marked {len(disappeared_ids)} listings as removed")
 
-                    # Detect relisted listings (safe: disappeared_ids and scraped_ids
-                    # are disjoint, so newly-removed IDs won't be relisted)
+                    # Detect relisted listings
                     removed_ids = db.get_removed_ids()
                     relisted_ids = removed_ids & scraped_ids
                     if relisted_ids:
@@ -424,30 +430,22 @@ def run_normal():
             finally:
                 browser.close()
 
-        finished_at = datetime.now(timezone.utc)
-        db.insert_scrape_log(
-            started_at=started_at.isoformat(),
-            finished_at=finished_at.isoformat(),
-            mode="normal",
+        db.finish_scrape_log(
+            log_id=log_id,
+            status="success",
             new_listings=new_count,
             total_found=total_count,
-            status="success",
             error_message=None,
-            duration_seconds=(finished_at - started_at).total_seconds(),
             new_imobiliare=new_imobiliare_count,
             new_storia=new_storia_count,
         )
     except Exception as e:
-        finished_at = datetime.now(timezone.utc)
-        db.insert_scrape_log(
-            started_at=started_at.isoformat(),
-            finished_at=finished_at.isoformat(),
-            mode="normal",
+        db.finish_scrape_log(
+            log_id=log_id,
+            status="error",
             new_listings=new_count,
             total_found=total_count,
-            status="error",
             error_message=str(e),
-            duration_seconds=(finished_at - started_at).total_seconds(),
             new_imobiliare=new_imobiliare_count,
             new_storia=new_storia_count,
         )
@@ -457,14 +455,17 @@ def run_normal():
 def run_seed():
     """Seed mode: scrape all pages, no photo fetching."""
     db.init_db()
-    started_at = datetime.now(timezone.utc)
+    settings = db.get_settings()
+    search_urls = url_builder.build_imobiliare_urls(settings)
+
+    log_id = db.start_scrape_log(mode="seed")
     new_count = 0
     total_count = 0
     try:
         with sync_playwright() as pw:
             browser, page = _launch_browser(pw)
             try:
-                all_listings = scrape_search_results(page, config.SEED_MAX_PAGES)
+                all_listings = scrape_search_results(page, search_urls, config.SEED_MAX_PAGES)
                 total_count = len(all_listings)
                 if not all_listings:
                     log.info("No listings found.")
@@ -483,28 +484,14 @@ def run_seed():
             finally:
                 browser.close()
 
-        finished_at = datetime.now(timezone.utc)
-        db.insert_scrape_log(
-            started_at=started_at.isoformat(),
-            finished_at=finished_at.isoformat(),
-            mode="seed",
-            new_listings=new_count,
-            total_found=total_count,
-            status="success",
-            error_message=None,
-            duration_seconds=(finished_at - started_at).total_seconds(),
+        db.finish_scrape_log(
+            log_id=log_id, status="success", new_listings=new_count,
+            total_found=total_count, error_message=None,
         )
     except Exception as e:
-        finished_at = datetime.now(timezone.utc)
-        db.insert_scrape_log(
-            started_at=started_at.isoformat(),
-            finished_at=finished_at.isoformat(),
-            mode="seed",
-            new_listings=new_count,
-            total_found=total_count,
-            status="error",
-            error_message=str(e),
-            duration_seconds=(finished_at - started_at).total_seconds(),
+        db.finish_scrape_log(
+            log_id=log_id, status="error", new_listings=new_count,
+            total_found=total_count, error_message=str(e),
         )
         raise
 

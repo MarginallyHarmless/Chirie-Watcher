@@ -41,8 +41,9 @@ def get_listings():
         if last_dt.tzinfo is None:
             last_dt = last_dt.replace(tzinfo=timezone.utc)
         now_utc = datetime.now(timezone.utc)
+        settings = db.get_settings()
         local_hour = (now_utc + config.LOCAL_UTC_OFFSET).hour
-        if config.SCRAPER_START_HOUR <= local_hour <= config.SCRAPER_END_HOUR:
+        if settings["scraper_start_hour"] <= local_hour <= settings["scraper_end_hour"]:
             scraper_healthy = (now_utc - last_dt) < timedelta(hours=2)
         else:
             # Off-hours: healthy if last run was before midnight (within expected gap)
