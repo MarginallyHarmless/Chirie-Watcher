@@ -71,6 +71,17 @@ def parse_price(price_str):
     return int(match.group(1)) if match else None
 
 
+def _matches_neighborhood(listing, neighborhoods):
+    """Check if a listing matches any configured neighborhood by location or title."""
+    if not neighborhoods:
+        return True
+    text = " ".join([
+        listing.get("location", ""),
+        listing.get("title", ""),
+    ]).lower()
+    return any(n in text for n in neighborhoods)
+
+
 def build_full_url(path):
     """Prepend base URL to relative paths."""
     if path.startswith("http"):
@@ -359,15 +370,17 @@ def run_normal():
             browser, page = _launch_browser(pw)
             try:
                 all_listings = scrape_search_results(page, search_urls, config.MAX_PAGES)
-                # Filter by price — search sites don't enforce URL price params strictly
+                # Filter — search sites don't strictly enforce URL params
                 price_min = settings["price_min"]
                 price_max = settings["price_max"]
                 before_filter = len(all_listings)
                 all_listings = [l for l in all_listings
                                 if (p := parse_price(l.get("price", ""))) is not None
                                 and price_min <= p <= price_max]
+                all_listings = [l for l in all_listings
+                                if _matches_neighborhood(l, neighborhoods)]
                 if before_filter != len(all_listings):
-                    log.info(f"Price filter: {before_filter} -> {len(all_listings)} listings")
+                    log.info(f"Filtered: {before_filter} -> {len(all_listings)} listings (price + neighborhood)")
                 total_count = len(all_listings)
                 if not all_listings:
                     log.info("No listings found on search page.")
