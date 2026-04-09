@@ -60,6 +60,17 @@ def extract_photos_from_json(text, max_photos=10):
     return unique[:max_photos]
 
 
+def parse_price(price_str):
+    """Extract numeric price from strings like '750 EUR / lună' or '700 EUR'.
+
+    Returns the integer price, or None if unparseable.
+    """
+    if not price_str:
+        return None
+    match = re.search(r"(\d+)", price_str)
+    return int(match.group(1)) if match else None
+
+
 def build_full_url(path):
     """Prepend base URL to relative paths."""
     if path.startswith("http"):
@@ -348,6 +359,15 @@ def run_normal():
             browser, page = _launch_browser(pw)
             try:
                 all_listings = scrape_search_results(page, search_urls, config.MAX_PAGES)
+                # Filter by price — search sites don't enforce URL price params strictly
+                price_min = settings["price_min"]
+                price_max = settings["price_max"]
+                before_filter = len(all_listings)
+                all_listings = [l for l in all_listings
+                                if (p := parse_price(l.get("price", ""))) is not None
+                                and price_min <= p <= price_max]
+                if before_filter != len(all_listings):
+                    log.info(f"Price filter: {before_filter} -> {len(all_listings)} listings")
                 total_count = len(all_listings)
                 if not all_listings:
                     log.info("No listings found on search page.")
@@ -376,6 +396,9 @@ def run_normal():
                     log.info("Starting storia.ro scrape...")
                     storia_listings = storia_scraper.scrape_storia_search_results(
                         page, storia_urls, neighborhoods, config.MAX_PAGES)
+                    storia_listings = [l for l in storia_listings
+                                       if (p := parse_price(l.get("price", ""))) is not None
+                                       and price_min <= p <= price_max]
                     storia_total = len(storia_listings)
                     total_count += storia_total
 

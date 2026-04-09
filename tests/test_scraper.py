@@ -76,3 +76,13 @@ def test_build_full_url():
     from scraper import build_full_url
     assert build_full_url("/ro/inchiriere/123") == "https://www.imobiliare.ro/ro/inchiriere/123"
     assert build_full_url("https://www.imobiliare.ro/ro/123") == "https://www.imobiliare.ro/ro/123"
+
+
+def test_parse_price():
+    """parse_price extracts numeric value from price strings."""
+    from scraper import parse_price
+    assert parse_price("750 EUR / lună") == 750
+    assert parse_price("700 EUR") == 700
+    assert parse_price("1200 RON / lună") == 1200
+    assert parse_price("") is None
+    assert parse_price(None) is None
