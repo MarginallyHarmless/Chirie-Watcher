@@ -74,10 +74,20 @@ def _random_delay(delay_range):
 
 
 def _launch_browser(pw):
-    browser = pw.chromium.launch(headless=True)
+    launch_args = [
+        "--disable-blink-features=AutomationControlled",
+    ]
+    # Prefer system Chrome — its TLS fingerprint is not flagged by CloudFront WAF
+    try:
+        browser = pw.chromium.launch(headless=True, channel="chrome", args=launch_args)
+    except Exception:
+        log.info("System Chrome not found, using bundled Chromium")
+        browser = pw.chromium.launch(headless=True, args=launch_args)
     context = browser.new_context(
         viewport={"width": 1920, "height": 1080},
-        user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+        user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36",
+        locale="ro-RO",
+        timezone_id="Europe/Bucharest",
     )
     page = context.new_page()
     stealth_sync(page)

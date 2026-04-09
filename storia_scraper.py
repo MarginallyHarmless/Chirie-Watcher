@@ -94,6 +94,9 @@ def _extract_listings_from_json(data):
                 detail_parts.append(f"etaj {floor}")
             details = " | ".join(detail_parts)
 
+            # Short description (used for neighborhood matching)
+            short_desc = item.get("shortDescription", "")
+
             # Photos from search results (medium size)
             photo_urls = []
             for img in item.get("images", []):
@@ -109,6 +112,7 @@ def _extract_listings_from_json(data):
                 "location": location,
                 "details": details,
                 "photo_urls": photo_urls,
+                "short_description": short_desc,
             })
         except Exception as e:
             log.warning(f"Failed to extract storia listing: {e}")
@@ -126,12 +130,21 @@ def _get_total_pages(data):
 
 
 def _matches_neighborhood(listing):
-    """Check if a listing's location matches any configured neighborhood."""
+    """Check if a listing matches any configured neighborhood.
+
+    Searches location, title, and short_description since storia.ro
+    often puts specific neighborhood names in the title or description
+    rather than the structured location field.
+    """
     neighborhoods = getattr(config, "STORIA_NEIGHBORHOODS", [])
     if not neighborhoods:
         return True
-    location_lower = listing.get("location", "").lower()
-    return any(n in location_lower for n in neighborhoods)
+    text = " ".join([
+        listing.get("location", ""),
+        listing.get("title", ""),
+        listing.get("short_description", ""),
+    ]).lower()
+    return any(n in text for n in neighborhoods)
 
 
 def scrape_storia_search_results(page, max_pages):
@@ -154,7 +167,7 @@ def scrape_storia_search_results(page, max_pages):
 
             try:
                 page.goto(current_url, wait_until="domcontentloaded", timeout=30000)
-                page.wait_for_selector("script#__NEXT_DATA__", timeout=15000)
+                page.wait_for_selector("script#__NEXT_DATA__", state="attached", timeout=15000)
             except Exception as e:
                 if page_num == 1:
                     log.warning(f"Could not load storia page: {e}. Skipping.")
