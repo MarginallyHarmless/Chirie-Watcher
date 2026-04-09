@@ -227,12 +227,9 @@
 
         /* === GRID === */
         .listings {
-            padding: 8px 32px 48px;
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(480px, 1fr));
             gap: 20px;
-            max-width: 1400px;
-            margin: 0 auto;
         }
 
         /* === CARD === */
@@ -251,9 +248,6 @@
             box-shadow: var(--shadow-md);
             transform: translateY(-2px);
         }
-
-        .card.seen { opacity: 0.55; }
-        .card.seen:hover { opacity: 0.8; }
 
         .card.removed { opacity: 0.7; }
         .card.removed:hover { opacity: 0.9; }
@@ -360,21 +354,6 @@
             backdrop-filter: blur(2px);
         }
 
-        .badge-new {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            background: var(--accent);
-            color: #fff;
-            font-size: 11px;
-            font-weight: 600;
-            padding: 3px 10px;
-            border-radius: 20px;
-            z-index: 3;
-            letter-spacing: 0.03em;
-            text-transform: uppercase;
-        }
-
         .badge-removed {
             position: absolute;
             top: 10px;
@@ -471,25 +450,6 @@
             color: var(--text-muted);
         }
 
-        .btn-ack {
-            background: transparent;
-            color: var(--text-muted);
-            border: 1px solid var(--border);
-            padding: 5px 14px;
-            font-family: inherit;
-            font-size: 12px;
-            font-weight: 500;
-            cursor: pointer;
-            border-radius: 20px;
-            transition: all 0.2s;
-        }
-
-        .btn-ack:hover {
-            border-color: var(--accent);
-            color: var(--accent);
-            background: var(--accent-light);
-        }
-
         /* === LIGHTBOX === */
         .lightbox {
             position: fixed;
@@ -579,11 +539,103 @@
             opacity: 0.3;
         }
 
+        /* === TIMELINE LAYOUT === */
+        .content-area {
+            display: flex;
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 8px 32px 48px;
+            gap: 0;
+        }
+
+        .timeline {
+            width: 80px;
+            flex-shrink: 0;
+            position: sticky;
+            top: 80px;
+            align-self: flex-start;
+            padding: 8px 0;
+            height: fit-content;
+        }
+
+        .timeline-entry {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 0;
+            cursor: pointer;
+            position: relative;
+            transition: color 0.2s;
+            color: var(--text-muted);
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .timeline-entry:hover { color: var(--text-secondary); }
+        .timeline-entry.active { color: var(--accent); }
+
+        .timeline-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            border: 2px solid var(--border);
+            background: transparent;
+            flex-shrink: 0;
+            transition: all 0.2s;
+        }
+
+        .timeline-entry.active .timeline-dot {
+            border-color: var(--accent);
+            background: var(--accent);
+        }
+
+        .timeline-line {
+            position: absolute;
+            left: 3px;
+            top: 24px;
+            bottom: -8px;
+            width: 2px;
+            background: var(--border-light);
+        }
+
+        .timeline-entry:last-child .timeline-line { display: none; }
+
+        .listings-column {
+            flex: 1;
+            min-width: 0;
+        }
+
+        /* === DAY HEADER === */
+        .day-header {
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-muted);
+            padding: 24px 0 12px;
+            border-bottom: 1px solid var(--border-light);
+            margin-bottom: 16px;
+        }
+
+        .day-header:first-child { padding-top: 8px; }
+
+        .day-group {
+            margin-bottom: 8px;
+        }
+
+        .day-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(480px, 1fr));
+            gap: 20px;
+        }
+
         /* === RESPONSIVE === */
         @media (max-width: 768px) {
             .header { padding: 16px 20px; }
             .controls { padding: 12px 20px; }
-            .listings { padding: 8px 16px 40px; grid-template-columns: 1fr; }
+            .content-area { padding: 8px 16px 40px; }
+            .timeline { display: none; }
+            .day-grid { grid-template-columns: 1fr; }
             .header h1 { font-size: 20px; }
             .card-photos.photos-many,
             .card-photos.photos-5 { grid-template-rows: 100px 100px; }
@@ -619,8 +671,7 @@
     <div class="controls">
         <div class="controls-left">
             <div class="filter-toggle">
-                <button class="filter-btn active" data-filter="new" onclick="setFilter('new')">New</button>
-                <button class="filter-btn" data-filter="all" onclick="setFilter('all')">All</button>
+                <button class="filter-btn active" data-filter="all" onclick="setFilter('all')">Active</button>
                 <button class="filter-btn" data-filter="removed" onclick="setFilter('removed')">Removed</button>
             </div>
             <select class="sort-select" id="sortSelect" onchange="setSort(this.value)">
@@ -640,7 +691,10 @@
         </div>
     </div>
 
-    <div class="listings" id="listings"></div>
+    <div class="content-area">
+        <div class="timeline" id="timeline"></div>
+        <div class="listings-column" id="listingsColumn"></div>
+    </div>
 
     <!-- Lightbox -->
     <div class="lightbox" id="lightbox" onclick="closeLightbox(event)">
