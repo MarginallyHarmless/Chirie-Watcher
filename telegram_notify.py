@@ -39,35 +39,55 @@ def _format_listing_text(listing):
     return "\n".join(parts)
 
 
+def _download_photo(url):
+    """Download a photo URL and return (filename, bytes) or None on failure."""
+    try:
+        resp = requests.get(url, timeout=15)
+        resp.raise_for_status()
+        return resp.content
+    except Exception as e:
+        log.warning(f"Failed to download photo {url[:80]}: {e}")
+        return None
+
+
 def send_listing(listing):
     """Send a single listing notification via Telegram.
 
-    If the listing has photos, sends them as a media group with the caption
-    on the first photo. Otherwise sends a text message.
+    If the listing has photos, downloads them and sends as a media group
+    with file uploads. Otherwise sends a text message.
     """
+    import json
     photos = listing.get("photo_urls", [])
     text = _format_listing_text(listing)
 
     if photos:
-        # Telegram media groups support up to 10 items
-        import json
-        media = []
-        for i, url in enumerate(photos[:10]):
-            item = {"type": "photo", "media": url}
-            if i == 0:
-                item["caption"] = text
-                item["parse_mode"] = "HTML"
-            media.append(item)
+        # Download photos to memory
+        downloaded = []
+        for url in photos[:10]:
+            data = _download_photo(url)
+            if data:
+                downloaded.append(data)
 
-        result = _send_request("sendMediaGroup", {
-            "chat_id": config.TELEGRAM_CHAT_ID,
-            "media": json.dumps(media),
-        })
-        if result and result.get("ok"):
-            return True
+        if downloaded:
+            media = []
+            files = {}
+            for i, data in enumerate(downloaded):
+                attach_name = f"photo{i}"
+                files[attach_name] = (f"{attach_name}.jpg", data, "image/jpeg")
+                item = {"type": "photo", "media": f"attach://{attach_name}"}
+                if i == 0:
+                    item["caption"] = text
+                    item["parse_mode"] = "HTML"
+                media.append(item)
 
-        # Fallback: if media group fails (e.g. bad photo URLs), send text only
-        log.warning("Media group failed, falling back to text message")
+            result = _send_request("sendMediaGroup", {
+                "chat_id": config.TELEGRAM_CHAT_ID,
+                "media": json.dumps(media),
+            }, files=files)
+            if result and result.get("ok"):
+                return True
+
+            log.warning("Media group upload failed, falling back to text message")
 
     _send_request("sendMessage", {
         "chat_id": config.TELEGRAM_CHAT_ID,
