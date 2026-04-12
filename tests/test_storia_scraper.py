@@ -22,6 +22,7 @@ def test_build_storia_url():
     from storia_scraper import build_storia_url
     assert build_storia_url("/ro/oferta/test-123") == "https://www.storia.ro/ro/oferta/test-123"
     assert build_storia_url("https://www.storia.ro/ro/oferta/test-123") == "https://www.storia.ro/ro/oferta/test-123"
+    assert build_storia_url("[lang]/ad/nice-apt-IDabc") == "https://www.storia.ro/ro/ad/nice-apt-IDabc"
 
 
 def test_extract_listings_from_json():

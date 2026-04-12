@@ -24,7 +24,8 @@ def extract_storia_listing_id(url):
 
 
 def build_storia_url(path):
-    """Prepend base URL to relative paths."""
+    """Prepend base URL to relative paths and resolve placeholders."""
+    path = path.replace("[lang]", "/ro")
     if path.startswith("http"):
         return path
     return STORIA_BASE_URL + path
