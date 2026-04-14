@@ -78,6 +78,22 @@ def test_extract_listings_from_json():
     assert l["photo_urls"][0] == "https://cdn/photo1_lg.jpg"
 
 
+def test_extract_listings_from_json_ignores_bad_href():
+    """_extract_listings_from_json builds URL from slug, ignoring storia's internal [lang]/ad/ href."""
+    from storia_scraper import _extract_listings_from_json
+    data = {
+        "props": {"pageProps": {"data": {"searchAds": {"items": [{
+            "id": 99,
+            "title": "Test",
+            "slug": "test-apt-IDxyz",
+            "href": "[lang]/ad/test-apt-IDxyz",
+            "totalPrice": {"value": 500, "currency": "EUR"},
+        }]}}}}
+    }
+    listings = _extract_listings_from_json(data)
+    assert listings[0]["url"] == "https://www.storia.ro/ro/oferta/test-apt-IDxyz"
+
+
 def test_extract_listings_from_json_empty():
     """_extract_listings_from_json handles missing data gracefully."""
     from storia_scraper import _extract_listings_from_json

@@ -63,8 +63,9 @@ def _extract_listings_from_json(data):
 
             title = item.get("title", "")
             slug = item.get("slug", "")
-            href = item.get("href", f"/ro/oferta/{slug}")
-            url = build_storia_url(href)
+            # Build URL from slug — storia's href field uses an internal /ad/ route
+            # that returns 404; the public route is /ro/oferta/{slug}
+            url = build_storia_url(f"/ro/oferta/{slug}")
 
             # Price
             price = ""
