@@ -40,10 +40,14 @@ def _format_listing_text(listing):
 
 
 def _download_photo(url):
-    """Download a photo URL and return (filename, bytes) or None on failure."""
+    """Download a photo URL and return bytes or None on failure."""
     try:
         resp = requests.get(url, timeout=15)
         resp.raise_for_status()
+        # Skip tiny error/placeholder images from CDN
+        if len(resp.content) < 5000:
+            log.warning(f"Photo too small ({len(resp.content)}b), likely placeholder: {url[:80]}")
+            return None
         return resp.content
     except Exception as e:
         log.warning(f"Failed to download photo {url[:80]}: {e}")
@@ -68,6 +72,8 @@ def send_listing(listing):
             if data:
                 downloaded.append(data)
 
+        log.info(f"  Photos: {len(downloaded)}/{len(photos[:10])} downloaded for {listing.get('id', '?')}")
+
         if downloaded:
             media = []
             files = {}
@@ -87,7 +93,7 @@ def send_listing(listing):
             if result and result.get("ok"):
                 return True
 
-            log.warning("Media group upload failed, falling back to text message")
+            log.warning(f"Media group upload failed for {listing.get('id', '?')}: {result}")
 
     _send_request("sendMessage", {
         "chat_id": config.TELEGRAM_CHAT_ID,
